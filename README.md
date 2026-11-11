@@ -69,3 +69,9 @@ pip install torch matplotlib
 
 # Run benchmark suite
 python benchmarks/run_suite.py
+---
+
+## 5. Visual Render Output
+
+![3D Sphere Render](twistor_render.png)
+*128x128 binary projection buffer of an 8,000-point 3D sphere evaluated using Penrose twistor incidence kernels.*
