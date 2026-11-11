@@ -73,5 +73,20 @@ python benchmarks/run_suite.py
 
 ## 5. Visual Render Output
 
-![3D Sphere Render](twistor_render.png)
-*128x128 binary projection buffer of an 8,000-point 3D sphere evaluated using Penrose twistor incidence kernels.*
+## Performance & Architecture Benchmarks
+
+Benchmarked on **Intel Arc B580 (12 GB)** via PyTorch `xpu` backend against a standard PyTorch Euclidean ray-point intersector ($32 \times 32$ resolution):
+
+| Points ($N$) | Twistor Incidence (ms) | Euclidean Vector (ms) | Overhead Factor |
+| :--- | :--- | :--- | :--- |
+| **1,000** | 60.32 ms | 0.25 ms | **242.5x** |
+| **10,000** | 602.20 ms | 1.69 ms | **356.0x** |
+| **100,000** | 6,028.14 ms | 18.33 ms | **328.8x** |
+
+### Architectural Bottleneck Analysis
+The throughput gap on GPU (~300x) compared to CPU (~10x–18x) is driven by PyTorch framework allocation patterns rather than Penrose geometry:
+1. **Unfused Complex GPU Kernels:** PyTorch handles `torch.complex64` on GPU by splitting operations into separate real/imaginary sub-kernels. Each spinor contraction triggers intermediate VRAM reads/writes instead of executing inside GPU register memory.
+2. **Data Payload:** A $2 \times 2$ Hermitian matrix $X^{AA'}$ requires 8 real floats versus 3 real floats for Euclidean 3D vectors ($2.66\times$ VRAM bandwidth).
+3. **SYCL Chunking:** Point clouds above $N = 2,000$ are chunked to satisfy Intel SYCL 32-bit work-item index limits, introducing sequential kernel launch overhead.
+
+**v0.2 Optimization Target:** Decompose 2-spinor complex operations into real FP32 tensor contractions ($\mathbb{R}^4$) to leverage native SIMD float execution lanes on Intel Arc hardware.
