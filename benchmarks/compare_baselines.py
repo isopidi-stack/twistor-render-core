@@ -1,7 +1,9 @@
 """
-Twistor vs Euclidean Baseline Comparison (Batched for Intel XPU)
-================================================================
-Compares throughput with point chunking to prevent SYCL range overflow.
+Twistor vs Euclidean Baseline Comparison (Real FP32 Core)
+=========================================================
+Compares execution time and throughput between:
+1. Real FP32 Twistor Incidence Kernel (Decomposed 2x2 Spinors)
+2. Euclidean Ray-Point Vector Distance Baseline
 """
 
 import sys
@@ -66,25 +68,26 @@ def run_comparison():
         device = "cpu"
 
     print("==================================================")
-    print(" Twistor vs Euclidean Baseline Comparison")
+    print(" Twistor Real FP32 vs Euclidean Baseline")
     print(f" Execution Device: {device.upper()}")
     print("==================================================", flush=True)
 
     point_counts = [1000, 10000, 100000]
 
-    print(f"{'Points (N)':<12} | {'Twistor (ms)':<14} | {'Euclidean (ms)':<14} | {'Overhead Factor':<15}", flush=True)
-    print("-" * 62, flush=True)
+    header = f"{'Points (N)':<10} | {'Twistor FP32 (ms)':<18} | {'Euclidean (ms)':<14} | {'Overhead Factor':<15}"
+    print(header, flush=True)
+    print("-" * len(header), flush=True)
 
     for N in point_counts:
         pts = torch.randn(N, 3, device=device) + torch.tensor([0.0, 0.0, 2.0], device=device)
 
         try:
-            # Warmup passes
+            # Warmup
             _ = batched_eval(twistor_r.render_point_cloud, pts, 32, 32)
             _ = batched_eval(euclidean_ray_point_render, pts, 32, 32)
             sync_device(device)
 
-            # Time Twistor kernel
+            # Time Real FP32 Twistor kernel
             sync_device(device)
             t0 = time.perf_counter()
             for _ in range(10):
@@ -101,13 +104,13 @@ def run_comparison():
             t_euc = (time.perf_counter() - t0) / 10.0 * 1000.0
 
             ratio = t_twistor / t_euc if t_euc > 0 else 1.0
-            print(f"{N:<12,d} | {t_twistor:<14.3f} | {t_euc:<14.3f} | {ratio:<14.2f}x", flush=True)
+            print(f"{N:<10,d} | {t_twistor:<18.3f} | {t_euc:<14.3f} | {ratio:<14.2f}x", flush=True)
 
         except Exception as e:
-            print(f"{N:<12,d} | FAILED on {device.upper()}: {e}", flush=True)
+            print(f"{N:<10,d} | FAILED on {device.upper()}: {e}", flush=True)
 
     print("\n==================================================")
-    print(" Comparison Complete!")
+    print(" Benchmark Complete!")
     print("==================================================", flush=True)
 
 
