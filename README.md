@@ -73,20 +73,26 @@ python benchmarks/run_suite.py
 
 ## 5. Visual Render Output
 
-## Performance & Architecture Benchmarks
+## Performance & Baseline Benchmarks
 
-Benchmarked on **Intel Arc B580 (12 GB)** via PyTorch `xpu` backend against a standard PyTorch Euclidean ray-point intersector ($32 \times 32$ resolution):
+Side-by-side benchmark comparison evaluating **Twistor Incidence Kernels** against a standard **Euclidean Ray-Point Distance** baseline ($32 \times 32$ image resolution):
 
-| Points ($N$) | Twistor Incidence (ms) | Euclidean Vector (ms) | Overhead Factor |
+### CPU Benchmarks (Intel Core i7-13700K)
+
+| Points ($N$) | Twistor (ms) | Euclidean (ms) | Overhead Factor |
+| :--- | :--- | :--- | :--- |
+| **1,000** | 79.19 ms | 8.69 ms | **9.1x** |
+| **10,000** | 886.55 ms | 50.00 ms | **17.7x** |
+
+### GPU Benchmarks (Intel Arc B580 12GB - PyTorch XPU)
+
+| Points ($N$) | Twistor (ms) | Euclidean (ms) | Overhead Factor |
 | :--- | :--- | :--- | :--- |
 | **1,000** | 60.32 ms | 0.25 ms | **242.5x** |
 | **10,000** | 602.20 ms | 1.69 ms | **356.0x** |
 | **100,000** | 6,028.14 ms | 18.33 ms | **328.8x** |
 
 ### Architectural Bottleneck Analysis
-The throughput gap on GPU (~300x) compared to CPU (~10x–18x) is driven by PyTorch framework allocation patterns rather than Penrose geometry:
-1. **Unfused Complex GPU Kernels:** PyTorch handles `torch.complex64` on GPU by splitting operations into separate real/imaginary sub-kernels. Each spinor contraction triggers intermediate VRAM reads/writes instead of executing inside GPU register memory.
-2. **Data Payload:** A $2 \times 2$ Hermitian matrix $X^{AA'}$ requires 8 real floats versus 3 real floats for Euclidean 3D vectors ($2.66\times$ VRAM bandwidth).
-3. **SYCL Chunking:** Point clouds above $N = 2,000$ are chunked to satisfy Intel SYCL 32-bit work-item index limits, introducing sequential kernel launch overhead.
-
-**v0.2 Optimization Target:** Decompose 2-spinor complex operations into real FP32 tensor contractions ($\mathbb{R}^4$) to leverage native SIMD float execution lanes on Intel Arc hardware.
+* **Pure Mathematical Overhead (~9x–18x):** As seen in CPU tests, Twistor space requires $3\times$ more memory bandwidth and $\sim 10\times$ more arithmetic FLOPs due to 4 complex spinor components ($2 \times 2$ Hermitian matrices) vs 3 spatial floats.
+* **GPU Complex Tensor Dispatch (~240x–350x):** High-level `torch.complex64` operations split into multiple un-fused real/imaginary sub-kernels on GPU. Every complex contraction causes intermediate VRAM roundtrips, whereas Euclidean real float ops execute in a single fused SYCL kernel.
+* **v0.2 Optimization Target:** Decompose 2-spinor complex operations into real FP32 tensor contractions ($\mathbb{R}^4$) to leverage native hardware SIMD execution lanes.
