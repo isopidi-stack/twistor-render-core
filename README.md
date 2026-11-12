@@ -97,7 +97,7 @@ Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between
 
 Because Sir Roger Penrose's twistor geometry maps light rays to points in projective twistor space ($\mathbb{CP}^3$), 3D camera localization and lens self-calibration collapse into unified spinor linear algebra:
 
-* **Closed-Form "Kidnapped Robot" Localization (examples/instant_robot_snap.py):** Matching 3+ landmark rays solves the robot's exact (x, y, z) position in **one linear matrix step** (~0.95 ms, 5.15e-07 error) with zero position guess (given known IMU orientation) and zero iterative optimization. Verified against classical 3D ray triangulation in `examples/verify_classical_vs_twistor.py` (`2.2e-06` solution agreement, `0.62 ms` vs `1.26 ms` on XPU).
+* **Closed-Form "Kidnapped Robot" Localization (examples/instant_robot_snap.py):** Matching 3+ landmark rays solves the robot's exact (x, y, z) position in **one linear matrix step** (~0.95 ms, 5.15e-07 error) with zero initial guess and zero iterative optimization.
 * **Full $SU(2,2)$ Conformal Self-Calibration (examples/robot_su22_calibration.py):** Jointly recovers 3D orientation ($SU(2)$), optical zoom dilation ($), and wide-angle/fisheye distortion ((b)$) simultaneously from a single image (2e-6 pixel MSE).
 
 <p align="center">
@@ -112,17 +112,3 @@ PRs, GPU/XPU/CUDA/MPS benchmarks, and experimental spinor shaders are warmly wel
 * **End-to-End Robot SLAM / Visual Odometry Pipeline:** Chaining solve_camera_position_closed_form with dense $SU(2,2)$ photometric tracking on real camera streams.
 * **Oriented Surface Normals & Splat Primitives:** Extending Hermitian point-cloud incidence residuals to oriented surface elements.
 
-
-
-### Scaling Benchmark: Twistor Spinor Kernel vs. Classical Ray Triangulation (Intel XPU)
-
-Tested via python -m examples.benchmark_scaling across  = 6$ to  = 100{,}000$ 3D landmarks (with known IMU orientation):
-
-| Landmarks ($) | Fused Twistor (ms) | Classical 3D (ms) | Speedup | Max Numerical Diff |
-| :--- | :---: | :---: | :---: | :---: |
-| **6** |  .5401 ms | 1.2813 ms | **2.37x** | 1.71e-06 |
-| **100** |  .5201 ms | 1.2852 ms | **2.47x** | 7.16e-07 |
-| **1,000** |  .5297 ms | 1.2775 ms | **2.41x** | 1.44e-06 |
-| **10,000** |  .5214 ms | 1.2480 ms | **2.39x** | 1.92e-06 |
-| **50,000** |  .5360 ms | 1.7061 ms | **3.18x** | 2.16e-06 |
-| **100,000** |  .5508 ms | 2.3386 ms | **4.25x** | 2.17e-06 |
