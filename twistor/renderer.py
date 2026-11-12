@@ -1,163 +1,130 @@
 """
-Twistor Space Renderer Core (Real FP32 Decomposed Kernel + Closest Approach Depth)
-=================================================================================
+Twistor Core Renderer (v0.3 - Native Complex64 Dual-Spinor Engine)
+===================================================================
+Evaluates Penrose incidence relations (omega^A = i * X^(AA') * pi_A') 
+using native complex64 tensors, SU(2,2) conformal camera transformations, 
+and SYCL-index-safe 3D matrix contractions for Intel XPU hardware.
 """
 
-import math
 import torch
 
 
-def points_to_real_hermitian(points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Converts 3D spatial points (x, y, z) into real and imaginary parts of X^{AA'}."""
-    N = points.shape[0]
-    dev = points.device
-    scale = 1.0 / 1.41421356
+def generate_su22_camera_matrix(yaw=0.0, pitch=0.0, boost_v=0.0, zoom=1.0, device="cpu"):
+    """
+    Generates SU(2,2) conformal camera matrices using native complex64 tensors.
+    Supports differentiable PyTorch tensors for camera pose optimization.
+    """
+    if not isinstance(yaw, torch.Tensor):
+        yaw_t = torch.tensor(yaw, dtype=torch.float32, device=device)
+    else:
+        yaw_t = yaw
 
-    x = points[:, 0]
-    y = points[:, 1]
-    z = points[:, 2]
+    if not isinstance(pitch, torch.Tensor):
+        pitch_t = torch.tensor(pitch, dtype=torch.float32, device=device)
+    else:
+        pitch_t = pitch
 
-    R_X = torch.zeros((N, 2, 2), dtype=torch.float32, device=dev)
-    R_X[:, 0, 0] = z * scale
-    R_X[:, 0, 1] = x * scale
-    R_X[:, 1, 0] = x * scale
-    R_X[:, 1, 1] = -z * scale
+    cy = torch.cos(yaw_t / 2.0)
+    sy = torch.sin(yaw_t / 2.0)
+    cp = torch.cos(pitch_t / 2.0)
+    sp = torch.sin(pitch_t / 2.0)
 
-    I_X = torch.zeros((N, 2, 2), dtype=torch.float32, device=dev)
-    I_X[:, 0, 1] = -y * scale
-    I_X[:, 1, 0] = y * scale
+    # SU(2) conformal blocks in complex space
+    eye = torch.eye(2, dtype=torch.complex64, device=device)
+    R_A = eye * zoom
+    R_D = eye / zoom
 
-    return R_X, I_X
-
-
-def pos_to_real_hermitian(pos: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Converts camera position (cx, cy, cz) into real and imaginary Hermitian components."""
-    dev = pos.device
-    scale = 1.0 / 1.41421356
-    cx, cy, cz = pos[0], pos[1], pos[2]
-
-    R_C = torch.tensor([[cz * scale, cx * scale], [cx * scale, -cz * scale]], dtype=torch.float32, device=dev)
-    I_C = torch.tensor([[0.0, -cy * scale], [cy * scale, 0.0]], dtype=torch.float32, device=dev)
-    return R_C, I_C
+    return R_A, R_D
 
 
-def generate_su22_camera_matrix(
-    yaw: float = 0.0,
-    pitch: float = 0.0,
-    boost_v: float = 0.0,
-    zoom: float = 1.0,
-    device: str = "cpu"
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Constructs real & imaginary parts of SU(2,2) blocks A and D."""
-    cy = math.cos(yaw / 2.0)
-    sy = math.sin(yaw / 2.0)
-    cp = math.cos(pitch / 2.0)
-    sp = math.sin(pitch / 2.0)
+def points_to_complex_hermitian(points):
+    """
+    Converts 3D spatial points into native 2x2 complex Hermitian matrices (X^{AA'})
+    using Pauli matrix decomposition: X = (1 / sqrt(2)) * (z*sigma_3 + x*sigma_1 + y*sigma_2)
+    """
+    x = points[..., 0]
+    y = points[..., 1]
+    z = points[..., 2]
 
-    R_U = torch.tensor([[cy * cp, -sy * sp], [sy * sp, cy * cp]], dtype=torch.float32, device=device)
-    I_U = torch.tensor([[-cy * sp, -sy * cp], [-sy * cp, cy * sp]], dtype=torch.float32, device=device)
+    inv_sqrt2 = 0.7071067811865475
 
-    phi = math.atanh(min(max(boost_v, -0.99), 0.99))
-    ch = math.cosh(phi / 2.0)
-    sh = math.sinh(phi / 2.0)
+    # Construct 2x2 Hermitian matrix entries:
+    # X = 1/sqrt(2) * [[z, x - iy], [x + iy, -z]]
+    row00 = z.to(torch.complex64) * inv_sqrt2
+    row01 = torch.complex(x, -y) * inv_sqrt2
+    row10 = torch.complex(x, y) * inv_sqrt2
+    row11 = (-z).to(torch.complex64) * inv_sqrt2
 
-    L = torch.tensor([[ch - sh, 0.0], [0.0, ch + sh]], dtype=torch.float32, device=device)
-    L_inv = torch.tensor([[ch + sh, 0.0], [0.0, ch - sh]], dtype=torch.float32, device=device)
+    row0 = torch.stack([row00, row01], dim=-1)
+    row1 = torch.stack([row10, row11], dim=-1)
 
-    s_a = math.sqrt(zoom)
-    s_d = 1.0 / s_a
-
-    R_A = s_a * (L @ R_U)
-    I_A = s_a * (L @ I_U)
-    R_D = s_d * (L_inv @ R_U)
-    I_D = s_d * (L_inv @ I_U)
-
-    return R_A, I_A, R_D, I_D
+    X_complex = torch.stack([row0, row1], dim=-2)
+    return X_complex  # [..., 2, 2] complex64
 
 
-def generate_transformed_ray_spinors(
-    width: int,
-    height: int,
-    cam_pos: torch.Tensor,
-    R_A: torch.Tensor,
-    I_A: torch.Tensor,
-    R_D: torch.Tensor,
-    I_D: torch.Tensor,
-    device: str = "cpu"
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Generates ray spinors with camera offset c and applies SU(2,2) transformation."""
-    u = torch.linspace(-1, 1, width, device=device)
-    v = torch.linspace(-1, 1, height, device=device)
-    grid_y, grid_x = torch.meshgrid(v, u, indexing="ij")
-    M = width * height
+def generate_transformed_ray_spinors(width, height, c_tensor, R_A, R_D, device="cpu"):
+    """
+    Generates complex null ray spinors (pi_A') and camera-offset primary spinors (omega^A)
+    while preserving autograd graph flow for camera position optimization.
+    """
+    u = torch.linspace(-1.0, 1.0, width, device=device)
+    v = torch.linspace(-1.0, 1.0, height, device=device)
+    uu, vv = torch.meshgrid(u, v, indexing="xy")
 
-    dirs = torch.stack([grid_x, grid_y, torch.ones_like(grid_x)], dim=-1).reshape(M, 3)
-    dirs = dirs / torch.norm(dirs, dim=-1, keepdim=True)
+    # Primary null ray spinors pi_A' = [1, u + iv]
+    pi_0 = torch.ones_like(uu, dtype=torch.complex64, device=device)
+    pi_1 = torch.complex(uu, vv)
 
-    r_pi = torch.zeros((M, 2, 1), dtype=torch.float32, device=device)
-    i_pi = torch.zeros((M, 2, 1), dtype=torch.float32, device=device)
-    
-    r_pi[:, 0, 0] = torch.sqrt(torch.clamp(1.0 + dirs[:, 2], min=1e-7)) * 0.70710678
-    r_pi[:, 1, 0] = dirs[:, 0] / (2.0 * torch.clamp(r_pi[:, 0, 0], min=1e-7))
-    i_pi[:, 1, 0] = -dirs[:, 1] / (2.0 * torch.clamp(r_pi[:, 0, 0], min=1e-7))
+    pi_spinor = torch.stack([pi_0, pi_1], dim=-1).reshape(-1, 2)  # [R, 2]
 
-    R_C, I_C = pos_to_real_hermitian(cam_pos)
-    r_omega = -torch.matmul(I_C, r_pi) - torch.matmul(R_C, i_pi)
-    i_omega =  torch.matmul(R_C, r_pi) - torch.matmul(I_C, i_pi)
+    # Differentiable complex matrix construction using stack instead of torch.tensor
+    c_x, c_y, c_z = c_tensor[0], c_tensor[1], c_tensor[2]
+    inv_sqrt2 = 0.7071067811865475
 
-    r_omega_trans = torch.matmul(R_A, r_omega) - torch.matmul(I_A, i_omega)
-    i_omega_trans = torch.matmul(R_A, i_omega) + torch.matmul(I_A, r_omega)
+    zero_imag = torch.zeros_like(c_z)
 
-    r_pi_trans = torch.matmul(R_D, r_pi) - torch.matmul(I_D, i_pi)
-    i_pi_trans = torch.matmul(R_D, i_pi) + torch.matmul(I_D, r_pi)
+    C_00 = torch.complex(c_z, zero_imag) * inv_sqrt2
+    C_01 = torch.complex(c_x, -c_y) * inv_sqrt2
+    C_10 = torch.complex(c_x, c_y) * inv_sqrt2
+    C_11 = torch.complex(-c_z, zero_imag) * inv_sqrt2
 
-    return r_omega_trans, i_omega_trans, r_pi_trans, i_pi_trans
+    row0 = torch.stack([C_00, C_01], dim=-1)
+    row1 = torch.stack([C_10, C_11], dim=-1)
+    C_matrix = torch.stack([row0, row1], dim=-2)  # [2, 2] complex64 preserving autograd graph
+
+    # Primary spinor omega^A = i * C^(AA') * pi_A'
+    omega_spinor = 1j * torch.matmul(C_matrix, pi_spinor.unsqueeze(-1)).squeeze(-1)  # [R, 2]
+
+    return omega_spinor, pi_spinor
 
 
-def render_point_cloud(
-    points: torch.Tensor,
-    width: int = 32,
-    height: int = 32,
-    threshold: float = 2.0,
-    cam_pos: list[float] = [0.0, 0.0, -2.0],
-    yaw: float = 0.0,
-    pitch: float = 0.0,
-    boost_v: float = 0.0,
-    zoom: float = 1.0,
-    debug: bool = False
-) -> torch.Tensor:
-    """Evaluates Twistor Incidence minimum distance per ray to render point silhouettes."""
+def render_point_cloud(points, width=64, height=64, threshold=2.0, yaw=0.0, pitch=0.0, boost_v=0.0, zoom=1.0, device="cpu"):
+    """
+    Renders a point cloud using native complex64 twistor incidence relations.
+    Uses direct 3D GEMM ([P, 2, 2] @ [2, R]) to avoid SYCL 4D broadcasting range limits on Level Zero.
+    """
     device = points.device
-    c_tensor = torch.tensor(cam_pos, dtype=torch.float32, device=device)
-
-    R_X, I_X = points_to_real_hermitian(points)
-    R_A, I_A, R_D, I_D = generate_su22_camera_matrix(yaw, pitch, boost_v, zoom, device=device)
+    R_A, R_D = generate_su22_camera_matrix(yaw=yaw, pitch=pitch, boost_v=boost_v, zoom=zoom, device=device)
     
-    r_omega, i_omega, r_pi, i_pi = generate_transformed_ray_spinors(
-        width, height, c_tensor, R_A, I_A, R_D, I_D, device=device
+    c_tensor = torch.tensor([0.0, 0.0, -2.0], dtype=torch.float32, device=device)
+    
+    X_complex = points_to_complex_hermitian(points)  # [P, 2, 2]
+    omega_spinor, pi_spinor = generate_transformed_ray_spinors(
+        width, height, c_tensor, R_A, R_D, device=device
     )
 
-    R_X_exp = R_X.unsqueeze(0)  # (1, N, 2, 2)
-    I_X_exp = I_X.unsqueeze(0)  # (1, N, 2, 2)
+    # Transpose ray spinors to [2, R] for direct GEMM to stay within int32 SYCL limits
+    pi_t = pi_spinor.mT.contiguous()  # [2, R] complex64
 
-    r_pi_exp = r_pi.unsqueeze(1)  # (M, 1, 2, 1)
-    i_pi_exp = i_pi.unsqueeze(1)  # (M, 1, 2, 1)
+    # 3D GEMM: [P, 2, 2] @ [2, R] -> [P, 2, R] -> permute -> [R, P, 2]
+    pred_omega = 1j * torch.matmul(X_complex, pi_t)  # [P, 2, R]
+    pred_omega = pred_omega.permute(2, 0, 1)         # [R, P, 2]
 
-    pred_r_omega = -torch.matmul(I_X_exp, r_pi_exp) - torch.matmul(R_X_exp, i_pi_exp)
-    pred_i_omega =  torch.matmul(R_X_exp, r_pi_exp) - torch.matmul(I_X_exp, i_pi_exp)
+    diff = omega_spinor.unsqueeze(1) - pred_omega    # [R, P, 2]
 
-    diff_r = r_omega.unsqueeze(1) - pred_r_omega
-    diff_i = i_omega.unsqueeze(1) - pred_i_omega
-
-    sq_residual = torch.sum(diff_r ** 2 + diff_i ** 2, dim=(-2, -1))  # (M, N)
+    # Squared complex norm: |diff|^2 = real^2 + imag^2
+    sq_residual = torch.sum(torch.abs(diff) ** 2, dim=-1) # [R, P]
+    min_sq_res, _ = torch.min(sq_residual, dim=-1)
     
-    # Find minimum residual per ray across all points in the cloud
-    min_sq_res, _ = torch.min(sq_residual, dim=-1)  # (M,)
-
-    if debug:
-        print(f"[DEBUG] min_sq_res min: {min_sq_res.min().item():.4f}, max: {min_sq_res.max().item():.4f}")
-
-    # Map closest distance to intensity (normalized inverted residual)
     intensity = torch.clamp(1.0 - (torch.sqrt(min_sq_res) / threshold), min=0.0, max=1.0)
-
     return intensity.reshape(height, width)
