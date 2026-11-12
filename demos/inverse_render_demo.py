@@ -16,10 +16,27 @@ import twistor.renderer as twistor_r
 
 
 def render_with_pose(points, width, height, threshold, cam_pos, yaw):
-    """Helper to render frame given a dynamic camera position and yaw with correct broadcasting."""
     device = points.device
-    R_A, I_A, R_D, I_D = twistor_r.generate_su22_camera_matrix(yaw=yaw, pitch=0.0, boost_v=0.0, zoom=1.0, device=device)
+    R_A, R_D = twistor_r.generate_su22_camera_matrix(yaw=yaw, pitch=0.0, boost_v=0.0, zoom=1.0, device=device)
     
+    X_complex = twistor_r.points_to_complex_hermitian(points)
+    omega_spinor, pi_spinor = twistor_r.generate_transformed_ray_spinors(
+        width, height, cam_pos, R_A, R_D, device=device
+    )
+
+    X_exp = X_complex.unsqueeze(0)                 # [1, P, 2, 2]
+    pi_exp = pi_spinor.unsqueeze(1).unsqueeze(-1)  # [R, 1, 2, 1]
+
+    pred_omega = 1j * torch.matmul(X_exp, pi_exp).squeeze(-1)
+
+    omega_exp = omega_spinor.unsqueeze(1)          # [R, 1, 2]
+    diff = omega_exp - pred_omega
+
+    sq_residual = torch.sum(torch.abs(diff) ** 2, dim=-1)
+    min_sq_res, _ = torch.min(sq_residual, dim=-1)
+    
+    intensity = torch.clamp(1.0 - (torch.sqrt(min_sq_res) / threshold), min=0.0, max=1.0)
+    return intensity.reshape(height, width)
     c_tensor = cam_pos
     R_X, I_X = twistor_r.points_to_real_hermitian(points) # Shape: [P, 2, 2]
     r_omega, i_omega, r_pi, i_pi = twistor_r.generate_transformed_ray_spinors(
