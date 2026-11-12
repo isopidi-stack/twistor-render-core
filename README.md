@@ -40,3 +40,5 @@ Measured at $64 \times 64$ resolution on Intel XPU hardware:
 1. **Setup Environment:**
    ```powershell
    pip install torch torchvision
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/IntelligentSoup/twistor-render-core/blob/main/demos/twistor_colab_demo.ipynb)
