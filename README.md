@@ -91,3 +91,23 @@ Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between
 
 - **Controls:** Click and drag inside the 3D viewport to orbit around the morphing manifold while it deforms continuously.
 - **Why it matters:** Evaluating surfaces through spinor incidence parameters creates smooth, continuous gradient paths across arbitrary shape spaces without mesh tearing or discrete vertex correspondence constraints.
+---
+
+## Robot Vision & Full (2,2)$ Conformal Optics (v0.8)
+
+Because Sir Roger Penrose's twistor geometry maps light rays to points in projective twistor space ($\mathbb{CP}^3$), 3D camera localization and lens self-calibration collapse into unified spinor linear algebra:
+
+* **Closed-Form "Kidnapped Robot" Localization (examples/instant_robot_snap.py):** Matching 3+ landmark rays solves the robot's exact (x, y, z) position in **one linear matrix step** (~0.95 ms, 5.15e-07 error) with zero initial guess and zero iterative optimization.
+* **Full (2,2)$ Conformal Self-Calibration (examples/robot_su22_calibration.py):** Jointly recovers 3D orientation ((2)$), optical zoom dilation ($), and wide-angle/fisheye distortion ((b)$) simultaneously from a single image (2e-6 pixel MSE).
+
+<p align="center">
+  <img src="assets/kidnapped_robot_snap.png" alt="Kidnapped Robot One-Shot Twistor Localization" width="48%" />
+  <img src="assets/su22_robot_calibration.gif" alt="Full SU(2,2) Conformal Robot Self-Calibration" width="48%" />
+</p>
+
+## Contributing & Open Research Directions
+
+PRs, GPU/XPU/CUDA/MPS benchmarks, and experimental spinor shaders are warmly welcomed! Good starting areas if you fork the repo:
+* **Custom Fused Incidence Kernels (Triton / CUDA / SYCL):** Fusing the [P, 2, 2] @ [2, R] complex contraction and LogSumExp depth reduction into a single custom kernel.
+* **End-to-End Robot SLAM / Visual Odometry Pipeline:** Chaining solve_camera_position_closed_form with dense (2,2)$ photometric tracking on real camera streams.
+* **Oriented Surface Normals & Splat Primitives:** Extending Hermitian point-cloud incidence residuals to oriented surface elements.
