@@ -42,3 +42,34 @@ Measured at $64 \times 64$ resolution on Intel XPU hardware:
    pip install torch torchvision
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/isopidi-stack/twistor-render-core/blob/main/demos/twistor_colab_demo.ipynb)
+
+## 🌌 Interactive Visual Sandboxes
+
+Unlike traditional graphics pipelines that rely on flat Euclidean $4 \times 4$ matrices and static triangle meshes, `twistor-render-core` represents geometry natively through **Penrose Twistor Theory ($\mathbb{CP}^3$)**, **complex 2-spinor incidence relations**, and **end-to-end differentiable PyTorch tensors**.
+
+Explore our real-time, hardware-accelerated sandboxes (CUDA / XPU / CPU) to experience how non-Euclidean physics and continuous spinor optimization work in practice:
+
+### Prerequisites
+Ensure you have the engine installed along with `matplotlib` for real-time interactive rendering:
+```bash
+pip install matplotlib
+
+1. Real-Time Gravitational Lensing Sandbox (examples/interactive_lensing.py)
+Simulates Schwarzschild-like spacetime curvature and null geodesic light deflection (producing Einstein rings and optical caustics) driven by complex spinor perturbations rather than post-processing screen-space shaders.
+
+python examples/interactive_lensing.py
+
+Interactive Controls & Behavior:
+Move your mouse cursor anywhere across the window to drag the gravitational mass center in real time.
+Watch background coordinate grids and optical caustics bend, multiply, and warp instantaneously via parallel complex64 tensor evaluation.
+Why it matters: Because the entire ray-bundle projection is differentiable through PyTorch autograd, this architecture scales naturally to inverse astrophysics problems—such as reconstructing hidden lensing mass distributions directly from observed distortions.
+
+2. Topological Shape Morphing (examples/topological_morphing.py)
+Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between a toroidal manifold and a harmonic spherical distribution) governed by complex eigenspinor incidence blending rather than rigid triangle-mesh re-rigging.
+
+python examples/topological_morphing.py
+
+Interactive Controls & Behavior:
+Runs a continuous, real-time differentiable flow loop showing smooth topological evolution without mesh tearing or discrete vertex correspondence constraints.
+Click and drag inside the 3D viewport to orbit around the morphing manifold from any angle while it deforms.
+Why it matters: Traditional rasterizers struggle with topological changes because hard polygon connectivity breaks during optimization. Evaluating surfaces through spinor incidence parameters creates smooth, continuous gradient paths across arbitrary shape spaces.
