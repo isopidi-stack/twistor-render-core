@@ -1,8 +1,8 @@
 """
-Twistor Core Renderer (v0.6 - Differentiable 6-DoF SU(2,2) Complex64 Engine)
-===========================================================================
+Twistor Core Renderer (v0.7 - Differentiable 6-DoF + SL(2,C) Lorentz Boost Engine)
+=================================================================================
 Evaluates Penrose eigenspinor incidence relations in CP^3 with optional
-differentiable spinor depth relief derived from Im(<pi | omega - i X pi>).
+differentiable spinor depth relief and relativistic Lorentz aberration (boost_v).
 """
 
 import torch
@@ -10,11 +10,18 @@ import torch
 
 def generate_su22_camera_matrix(yaw=0.0, pitch=0.0, boost_v=0.0, zoom=1.0, device="cpu"):
     """
-    Generates differentiable SU(2) spinor rotation matrices (R_A, R_D).
+    Generates differentiable SL(2, C) spinor rotation (R_A) and Lorentz boost (B_boost) matrices.
+    boost_v: relativistic velocity beta = v/c in (-0.995, 0.995).
     """
     yaw_t = yaw if isinstance(yaw, torch.Tensor) else torch.tensor(yaw, dtype=torch.float32, device=device)
     pitch_t = pitch if isinstance(pitch, torch.Tensor) else torch.tensor(pitch, dtype=torch.float32, device=device)
     zoom_t = zoom if isinstance(zoom, torch.Tensor) else torch.tensor(zoom, dtype=torch.float32, device=device)
+    beta_t = boost_v if isinstance(boost_v, torch.Tensor) else torch.tensor(boost_v, dtype=torch.float32, device=device)
+
+    beta_safe = torch.clamp(beta_t, -0.995, 0.995)
+    rapidity = torch.atanh(beta_safe)
+    exp_neg = torch.exp(-0.5 * rapidity)
+    exp_pos = torch.exp(0.5 * rapidity)
 
     cy = torch.cos(yaw_t / 2.0)
     sy = torch.sin(yaw_t / 2.0)
@@ -47,9 +54,14 @@ def generate_su22_camera_matrix(yaw=0.0, pitch=0.0, boost_v=0.0, zoom=1.0, devic
 
     zoom_c = torch.complex(torch.sqrt(zoom_t), zero)
     R_A = U_rot * zoom_c
-    R_D = U_rot / zoom_c
 
-    return R_A, R_D
+    # SL(2, C) Lorentz boost matrix B_boost (det = 1)
+    B_boost = torch.stack([
+        torch.stack([torch.complex(exp_neg, zero), torch.complex(zero, zero)], dim=-1),
+        torch.stack([torch.complex(zero, zero), torch.complex(exp_pos, zero)], dim=-1)
+    ], dim=-2)
+
+    return R_A, B_boost
 
 
 def points_to_complex_hermitian(points):
@@ -73,20 +85,24 @@ def points_to_complex_hermitian(points):
     return torch.stack([row0, row1], dim=-2)
 
 
-def generate_transformed_ray_spinors(width, height, c_tensor, R_A, R_D, device="cpu"):
+def generate_transformed_ray_spinors(width, height, c_tensor, R_A, B_boost, device="cpu"):
     """
-    Generates normalized projective null ray spinors (pi_A') and camera-origin spinors (omega^A).
+    Generates normalized projective null ray spinors (pi_A') under SL(2, C) Lorentz boost
+    and camera-origin spinors (omega^A).
     """
     u = torch.linspace(-0.65, 0.65, width, device=device)
     v = torch.linspace(-0.65, 0.65, height, device=device)
     uu, vv = torch.meshgrid(u, v, indexing="xy")
 
-    # Projective null ray spinors pi_A' = [1, u + iv], normalized to unit spinor norm
+    # Projective null ray spinors pi_A' = [1, u + iv]
     pi_0 = torch.ones_like(uu, dtype=torch.complex64, device=device)
     pi_1 = torch.complex(uu, vv)
     pi_raw = torch.stack([pi_0, pi_1], dim=-1).reshape(-1, 2)  # [R, 2]
-    pi_norm = torch.linalg.norm(pi_raw, dim=-1, keepdim=True)
-    pi_spinor = pi_raw / pi_norm
+
+    # Apply SL(2, C) Lorentz boost before unit spinor normalization
+    pi_boosted = torch.matmul(pi_raw, B_boost.mT)
+    pi_norm = torch.linalg.norm(pi_boosted, dim=-1, keepdim=True)
+    pi_spinor = pi_boosted / pi_norm
 
     # Differentiable complex camera translation matrix C^(AA')
     c_x, c_y, c_z = c_tensor[0], c_tensor[1], c_tensor[2]
@@ -124,16 +140,16 @@ def render_point_cloud(
 ):
     """
     Renders a point cloud using native complex64 twistor eigenspinor incidence relations.
-    When shading=True, modulates pixel brightness using differentiable spinor depth relief.
+    Supports SL(2, C) relativistic Lorentz aberration via boost_v = v/c.
     """
     device = points.device
-    R_A, R_D = generate_su22_camera_matrix(yaw=yaw, pitch=pitch, boost_v=boost_v, zoom=zoom, device=device)
-    
+    R_A, B_boost = generate_su22_camera_matrix(yaw=yaw, pitch=pitch, boost_v=boost_v, zoom=zoom, device=device)
+
     if cam_pos is None:
         c_tensor = torch.tensor([0.0, 0.0, -2.0], dtype=torch.float32, device=device)
     else:
         c_tensor = cam_pos
-    
+
     X_world = points_to_complex_hermitian(points)  # [P, 2, 2]
 
     # Apply SU(2) spinor conjugation: X_cam = R_A @ X_world @ R_A^dagger
@@ -141,7 +157,7 @@ def render_point_cloud(
     X_complex = torch.matmul(R_A, torch.matmul(X_world, R_A_dag))  # [P, 2, 2]
 
     omega_spinor, pi_spinor = generate_transformed_ray_spinors(
-        width, height, c_tensor, R_A, R_D, device=device
+        width, height, c_tensor, R_A, B_boost, device=device
     )
 
     pi_t = pi_spinor.mT.contiguous()  # [2, R] complex64
@@ -157,7 +173,7 @@ def render_point_cloud(
     total_sq = torch.sum(torch.abs(diff) ** 2, dim=-1)  # [R, P]
     longitudinal = torch.sum(pi_spinor.conj().unsqueeze(1) * diff, dim=-1)  # [R, P] complex64
     perp_sq_residual = torch.relu(total_sq - (torch.abs(longitudinal) ** 2))  # [R, P]
-    
+
     # Stabilized LogSumExp softmin for silhouette occupancy
     min_val, _ = torch.min(perp_sq_residual, dim=-1, keepdim=True)
     softmin_sq_res = min_val.squeeze(-1) - tau * torch.logsumexp(-(perp_sq_residual - min_val) / tau, dim=-1)
@@ -166,15 +182,13 @@ def render_point_cloud(
     if not shading:
         return occupancy.reshape(height, width)
 
-    # Differentiable Spinor Depth Relief (static tensor shapes â€” zero XPU boolean indexing):
-    # Signed longitudinal depth along ray pi is encoded in -Im(<pi | diff>).
-    signed_depth = -longitudinal.imag  # [R, P] (smaller = closer to camera)
+    # Differentiable Spinor Depth Relief (static tensor shapes — zero XPU boolean indexing):
+    signed_depth = -longitudinal.imag  # [R, P]
     depth_bias = 0.0015 * signed_depth
     z_score = -(perp_sq_residual + depth_bias) / tau
-    weights = torch.softmax(z_score, dim=-1)  # [R, P] front-surface soft-attention
+    weights = torch.softmax(z_score, dim=-1)  # [R, P]
     expected_depth = torch.sum(weights * signed_depth, dim=-1)  # [R]
 
-    # Static foreground bounds via torch.where (prevents Level Zero dynamic mask sync)
     fg_mask = occupancy > 0.1
     z_near = torch.where(fg_mask, expected_depth, torch.tensor(1e6, device=device)).min().detach()
     z_far = torch.where(fg_mask, expected_depth, torch.tensor(-1e6, device=device)).max().detach()
