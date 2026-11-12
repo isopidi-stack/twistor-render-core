@@ -3,7 +3,7 @@ Twistor Real 3D Scan 6-DoF Pose Recovery (demos/scan_pose_recovery.py)
 ======================================================================
 Loads an external .ply or .obj 3D scan (automatically fetches the Stanford 
 Bunny scan on first run) and optimizes a misaligned 6-DoF camera pose using 
-native complex64 twistor eigenspinor incidence relations.
+native complex64 twistor eigenspinor incidence relations and spinor depth shading.
 
 Usage:
     python demos/scan_pose_recovery.py [optional_path_to_scan.ply_or_obj]
@@ -26,7 +26,7 @@ DEFAULT_PLY_PATH = os.path.join(os.path.dirname(__file__), "stanford_bunny.ply")
 TEMP_OBJ_PATH = os.path.join(os.path.dirname(__file__), "stanford_bunny.obj")
 
 
-def get_scan_points(cli_arg=None, max_points=3500, device="cpu"):
+def get_scan_points(cli_arg=None, max_points=4500, device="cpu"):
     if cli_arg and os.path.exists(cli_arg):
         print(f"Loading user 3D scan: {cli_arg}")
         return load_point_cloud(cli_arg, max_points=max_points, normalize=True, device=device)
@@ -60,32 +60,35 @@ def main():
         "cuda" if torch.cuda.is_available() else "cpu"
     )
     cli_path = sys.argv[1] if len(sys.argv) > 1 else None
-    pts = get_scan_points(cli_path, max_points=3500, device=device)
-    print(f"Running 6-DoF Scan Pose Recovery on {device.upper()} ({pts.shape[0]} vertices)...")
+    pts = get_scan_points(cli_path, max_points=3000, device=device)
+    pts[:, 1] = -pts[:, 1]  # Orient Y-up scan upright in image space
+    print(f"Running Shaded 6-DoF Scan Pose Recovery on {device.upper()} ({pts.shape[0]} vertices)...")
 
     width, height = 160, 160
-    sharp_thresh = 0.042
-    sharp_tau = 0.0003
+    sharp_thresh = 0.038
+    sharp_tau = 0.00025
 
     # Ground truth camera pose
-    true_pos = torch.tensor([0.12, -0.10, -1.85], device=device)
+    true_pos = torch.tensor([0.10, -0.08, -1.75], device=device)
     true_yaw = torch.tensor(0.45, device=device)
-    true_pitch = torch.tensor(-0.30, device=device)
+    true_pitch = torch.tensor(-0.25, device=device)
 
     target_img = twistor_r.render_point_cloud(
         pts, width, height, threshold=sharp_thresh,
-        yaw=true_yaw, pitch=true_pitch, cam_pos=true_pos, tau=sharp_tau, device=device
+        yaw=true_yaw, pitch=true_pitch, cam_pos=true_pos, tau=sharp_tau,
+        shading=True, device=device
     ).detach()
 
     # Initial misaligned camera guess
-    est_pos = torch.tensor([-0.15, 0.14, -2.30], device=device, requires_grad=True)
+    est_pos = torch.tensor([-0.15, 0.14, -2.25], device=device, requires_grad=True)
     est_yaw = torch.tensor(-0.25, device=device, requires_grad=True)
     est_pitch = torch.tensor(0.20, device=device, requires_grad=True)
 
     with torch.no_grad():
         initial_img = twistor_r.render_point_cloud(
             pts, width, height, threshold=sharp_thresh,
-            yaw=est_yaw, pitch=est_pitch, cam_pos=est_pos, tau=sharp_tau, device=device
+            yaw=est_yaw, pitch=est_pitch, cam_pos=est_pos, tau=sharp_tau,
+            shading=True, device=device
         )
 
     optimizer = torch.optim.Adam([
@@ -106,12 +109,14 @@ def main():
 
         target_curr = twistor_r.render_point_cloud(
             pts, width, height, threshold=curr_thresh,
-            yaw=true_yaw, pitch=true_pitch, cam_pos=true_pos, tau=curr_tau, device=device
+            yaw=true_yaw, pitch=true_pitch, cam_pos=true_pos, tau=curr_tau,
+            shading=True, device=device
         ).detach()
 
         pred_img = twistor_r.render_point_cloud(
             pts, width, height, threshold=curr_thresh,
-            yaw=est_yaw, pitch=est_pitch, cam_pos=est_pos, tau=curr_tau, device=device
+            yaw=est_yaw, pitch=est_pitch, cam_pos=est_pos, tau=curr_tau,
+            shading=True, device=device
         )
 
         loss = torch.nn.functional.mse_loss(pred_img, target_curr)
@@ -122,7 +127,8 @@ def main():
             with torch.no_grad():
                 mid_img = twistor_r.render_point_cloud(
                     pts, width, height, threshold=sharp_thresh,
-                    yaw=est_yaw, pitch=est_pitch, cam_pos=est_pos, tau=sharp_tau, device=device
+                    yaw=est_yaw, pitch=est_pitch, cam_pos=est_pos, tau=sharp_tau,
+                    shading=True, device=device
                 )
 
         if epoch % 30 == 0:
@@ -138,7 +144,8 @@ def main():
     with torch.no_grad():
         final_img = twistor_r.render_point_cloud(
             pts, width, height, threshold=sharp_thresh,
-            yaw=est_yaw, pitch=est_pitch, cam_pos=est_pos, tau=sharp_tau, device=device
+            yaw=est_yaw, pitch=est_pitch, cam_pos=est_pos, tau=sharp_tau,
+            shading=True, device=device
         )
 
     grid = torch.stack([
@@ -150,8 +157,8 @@ def main():
 
     out_path = "scan_pose_recovery.png"
     vutils.save_image(grid, out_path, nrow=4, padding=6, pad_value=0.35)
-    print(f"\nScan pose recovery finished in {elapsed:.2f}s!")
-    print(f"Saved 4-panel scan progression to: {os.path.abspath(out_path)}")
+    print(f"\nShaded scan pose recovery finished in {elapsed:.2f}s!")
+    print(f"Saved 4-panel shaded scan progression to: {os.path.abspath(out_path)}")
 
 
 if __name__ == "__main__":

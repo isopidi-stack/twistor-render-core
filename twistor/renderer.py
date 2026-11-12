@@ -1,9 +1,8 @@
 """
-Twistor Core Renderer (v0.4 - Differentiable 6-DoF SU(2,2) Complex64 Engine)
+Twistor Core Renderer (v0.6 - Differentiable 6-DoF SU(2,2) Complex64 Engine)
 ===========================================================================
-Evaluates Penrose eigenspinor incidence relations in CP^3:
-A null ray pi_A' intersects spatial point X^(AA') from camera C^(AA') iff 
-(C - X)^(AA') pi_A' is proportional to pi^A (exact zero perpendicular residual).
+Evaluates Penrose eigenspinor incidence relations in CP^3 with optional
+differentiable spinor depth relief derived from Im(<pi | omega - i X pi>).
 """
 
 import torch
@@ -108,9 +107,24 @@ def generate_transformed_ray_spinors(width, height, c_tensor, R_A, R_D, device="
     return omega_spinor, pi_spinor
 
 
-def render_point_cloud(points, width=64, height=64, threshold=0.05, yaw=0.0, pitch=0.0, boost_v=0.0, zoom=1.0, cam_pos=None, tau=0.0005, device="cpu"):
+def render_point_cloud(
+    points,
+    width=64,
+    height=64,
+    threshold=0.05,
+    yaw=0.0,
+    pitch=0.0,
+    boost_v=0.0,
+    zoom=1.0,
+    cam_pos=None,
+    tau=0.0005,
+    shading=False,
+    depth_contrast=2.2,
+    device="cpu",
+):
     """
     Renders a point cloud using native complex64 twistor eigenspinor incidence relations.
+    When shading=True, modulates pixel brightness using differentiable spinor depth relief.
     """
     device = points.device
     R_A, R_D = generate_su22_camera_matrix(yaw=yaw, pitch=pitch, boost_v=boost_v, zoom=zoom, device=device)
@@ -140,14 +154,34 @@ def render_point_cloud(points, width=64, height=64, threshold=0.05, yaw=0.0, pit
     diff = omega_spinor.unsqueeze(1) - pred_omega  # [R, P, 2]
 
     # Eigenspinor perpendicular residual: ||diff||^2 - |<pi | diff>|^2
-    # Equals 0.0 identically whenever ray pi_A' intersects 3D point X!
     total_sq = torch.sum(torch.abs(diff) ** 2, dim=-1)  # [R, P]
     longitudinal = torch.sum(pi_spinor.conj().unsqueeze(1) * diff, dim=-1)  # [R, P] complex64
     perp_sq_residual = torch.relu(total_sq - (torch.abs(longitudinal) ** 2))  # [R, P]
     
-    # Stabilized LogSumExp softmin
+    # Stabilized LogSumExp softmin for silhouette occupancy
     min_val, _ = torch.min(perp_sq_residual, dim=-1, keepdim=True)
     softmin_sq_res = min_val.squeeze(-1) - tau * torch.logsumexp(-(perp_sq_residual - min_val) / tau, dim=-1)
-    
-    intensity = torch.exp(-torch.relu(softmin_sq_res) / (threshold ** 2))
+    occupancy = torch.exp(-torch.relu(softmin_sq_res) / (threshold ** 2))
+
+    if not shading:
+        return occupancy.reshape(height, width)
+
+    # Differentiable Spinor Depth Relief (static tensor shapes — zero XPU boolean indexing):
+    # Signed longitudinal depth along ray pi is encoded in -Im(<pi | diff>).
+    signed_depth = -longitudinal.imag  # [R, P] (smaller = closer to camera)
+    depth_bias = 0.0015 * signed_depth
+    z_score = -(perp_sq_residual + depth_bias) / tau
+    weights = torch.softmax(z_score, dim=-1)  # [R, P] front-surface soft-attention
+    expected_depth = torch.sum(weights * signed_depth, dim=-1)  # [R]
+
+    # Static foreground bounds via torch.where (prevents Level Zero dynamic mask sync)
+    fg_mask = occupancy > 0.1
+    z_near = torch.where(fg_mask, expected_depth, torch.tensor(1e6, device=device)).min().detach()
+    z_far = torch.where(fg_mask, expected_depth, torch.tensor(-1e6, device=device)).max().detach()
+    z_span = torch.clamp(z_far - z_near, min=1e-4)
+
+    rel_depth = torch.clamp((expected_depth - z_near) / z_span, 0.0, 1.0)
+    shade = 0.28 + 0.72 * torch.exp(-depth_contrast * rel_depth)
+
+    intensity = occupancy * shade
     return intensity.reshape(height, width)

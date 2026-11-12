@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "twistor-render-core"
+version = "0.6.0"
+description = "Differentiable 3D rendering engine built on Penrose Twistor Theory (CP^3) and native complex64 2-spinors."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Ivan", email = "isopidi-stack@users.noreply.github.com" }
+]
+keywords = [
+    "twistor-theory",
+    "differentiable-rendering",
+    "pytorch",
+    "complex-spinors",
+    "inverse-graphics",
+    "intel-xpu",
+    "cuda",
+    "6dof-pose-estimation"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Multimedia :: Graphics :: 3D Rendering",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "torch>=2.1.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+demos = [
+    "torchvision>=0.16.0",
+    "matplotlib>=3.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/isopidi-stack/twistor-render-core"
+Repository = "https://github.com/isopidi-stack/twistor-render-core"
+Issues = "https://github.com/isopidi-stack/twistor-render-core/issues"
+
+[tool.setuptools.packages.find]
+include = ["twistor*"]
