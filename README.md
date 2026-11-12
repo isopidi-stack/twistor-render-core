@@ -1,4 +1,4 @@
-# twistor-render-core
+﻿# twistor-render-core
 
 Experimental differentiable 3D rendering engine built on Roger Penrose's Twistor Theory ($\mathbb{CP}^3$) and complex 2-spinors using PyTorch & Intel XPU.
 
@@ -27,10 +27,10 @@ Instead of traditional Euclidean $4\times 4$ matrices and discrete rasterization
 ## Repository Structure
 
     twistor-render-core/
-    ├── twistor/          # Core complex64 spinor kernels, SU(2)/SL(2,C) transforms & Hermitian BVH
-    ├── examples/         # Interactive sandboxes, relativistic aberration, lensing, morphing & 6-DoF demos
-    ├── benchmarks/       # XPU / CUDA vs. brute-force scaling telemetry
-    └── assets/           # Showcase renders and visual documentation
+    в”њв”Ђв”Ђ twistor/          # Core complex64 spinor kernels, SU(2)/SL(2,C) transforms & Hermitian BVH
+    в”њв”Ђв”Ђ examples/         # Interactive sandboxes, relativistic aberration, lensing, morphing & 6-DoF demos
+    в”њв”Ђв”Ђ benchmarks/       # XPU / CUDA vs. brute-force scaling telemetry
+    в””в”Ђв”Ђ assets/           # Showcase renders and visual documentation
 
 ---
 
@@ -74,7 +74,7 @@ Applies an exact $SL(2,\mathbb{C})$ spinor Lorentz boost (`boost_v = v/c`) to ce
     python examples/relativistic_aberration.py
 
 - **What it runs:** Recovers an unknown relativistic speed ($\beta = 0.78c$) purely via `loss.backward()` pixel gradients, then renders a continuous sweep from $-0.85c$ to $+0.85c$ into `assets/relativistic_aberration.gif`.
-- **Why it matters:** Standard $4\times 4$ Euclidean camera pipelines break down when space and time mix under relativistic boosts—in twistor space, Lorentz transformations are native linear operators on 2-spinors.
+- **Why it matters:** Standard $4\times 4$ Euclidean camera pipelines break down when space and time mix under relativistic boostsвЂ”in twistor space, Lorentz transformations are native linear operators on 2-spinors.
 
 ### 3. Real-Time Gravitational Lensing (`examples/interactive_lensing.py`)
 Simulates Schwarzschild-like spacetime curvature and null geodesic light deflection (producing Einstein rings and optical caustics) driven by complex spinor perturbations rather than screen-space post-processing shaders.
@@ -82,7 +82,7 @@ Simulates Schwarzschild-like spacetime curvature and null geodesic light deflect
     python examples/interactive_lensing.py
 
 - **Controls:** Move your mouse cursor across the window to drag the gravitational mass center in real time.
-- **Why it matters:** Because the entire ray-bundle projection is differentiable via PyTorch autograd, this architecture scales to inverse astrophysics problems—reconstructing hidden lensing mass distributions directly from observed distortions.
+- **Why it matters:** Because the entire ray-bundle projection is differentiable via PyTorch autograd, this architecture scales to inverse astrophysics problemsвЂ”reconstructing hidden lensing mass distributions directly from observed distortions.
 
 ### 4. Topological Shape Morphing (`examples/topological_morphing.py`)
 Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between a toroidal manifold and a harmonic sphere) governed by complex eigenspinor incidence blending rather than rigid triangle-mesh re-rigging.
@@ -93,12 +93,12 @@ Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between
 - **Why it matters:** Evaluating surfaces through spinor incidence parameters creates smooth, continuous gradient paths across arbitrary shape spaces without mesh tearing or discrete vertex correspondence constraints.
 ---
 
-## Robot Vision & Full (2,2)$ Conformal Optics (v0.8)
+## Robot Vision & Full $SU(2,2)$ Conformal Optics (v0.8)
 
 Because Sir Roger Penrose's twistor geometry maps light rays to points in projective twistor space ($\mathbb{CP}^3$), 3D camera localization and lens self-calibration collapse into unified spinor linear algebra:
 
 * **Closed-Form "Kidnapped Robot" Localization (examples/instant_robot_snap.py):** Matching 3+ landmark rays solves the robot's exact (x, y, z) position in **one linear matrix step** (~0.95 ms, 5.15e-07 error) with zero initial guess and zero iterative optimization.
-* **Full (2,2)$ Conformal Self-Calibration (examples/robot_su22_calibration.py):** Jointly recovers 3D orientation ((2)$), optical zoom dilation ($), and wide-angle/fisheye distortion ((b)$) simultaneously from a single image (2e-6 pixel MSE).
+* **Full $SU(2,2)$ Conformal Self-Calibration (examples/robot_su22_calibration.py):** Jointly recovers 3D orientation ($SU(2)$), optical zoom dilation ($), and wide-angle/fisheye distortion ((b)$) simultaneously from a single image (2e-6 pixel MSE).
 
 <p align="center">
   <img src="assets/kidnapped_robot_snap.png" alt="Kidnapped Robot One-Shot Twistor Localization" width="48%" />
@@ -109,5 +109,6 @@ Because Sir Roger Penrose's twistor geometry maps light rays to points in projec
 
 PRs, GPU/XPU/CUDA/MPS benchmarks, and experimental spinor shaders are warmly welcomed! Good starting areas if you fork the repo:
 * **Custom Fused Incidence Kernels (Triton / CUDA / SYCL):** Fusing the [P, 2, 2] @ [2, R] complex contraction and LogSumExp depth reduction into a single custom kernel.
-* **End-to-End Robot SLAM / Visual Odometry Pipeline:** Chaining solve_camera_position_closed_form with dense (2,2)$ photometric tracking on real camera streams.
+* **End-to-End Robot SLAM / Visual Odometry Pipeline:** Chaining solve_camera_position_closed_form with dense $SU(2,2)$ photometric tracking on real camera streams.
 * **Oriented Surface Normals & Splat Primitives:** Extending Hermitian point-cloud incidence residuals to oriented surface elements.
+
