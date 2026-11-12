@@ -97,7 +97,7 @@ Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between
 
 Because Sir Roger Penrose's twistor geometry maps light rays to points in projective twistor space ($\mathbb{CP}^3$), 3D camera localization and lens self-calibration collapse into unified spinor linear algebra:
 
-* **Closed-Form "Kidnapped Robot" Localization (examples/instant_robot_snap.py):** Matching 3+ landmark rays solves the robot's exact (x, y, z) position in **one linear matrix step** (~0.95 ms, 5.15e-07 error) with zero initial guess and zero iterative optimization.
+* **Closed-Form "Kidnapped Robot" Localization (examples/instant_robot_snap.py):** Matching 3+ landmark rays solves the robot's exact (x, y, z) position in **one linear matrix step** (~0.95 ms, 5.15e-07 error) with zero position guess (given known IMU orientation) and zero iterative optimization. Verified against classical 3D ray triangulation in `examples/verify_classical_vs_twistor.py` (`2.2e-06` solution agreement, `0.62 ms` vs `1.26 ms` on XPU).
 * **Full $SU(2,2)$ Conformal Self-Calibration (examples/robot_su22_calibration.py):** Jointly recovers 3D orientation ($SU(2)$), optical zoom dilation ($), and wide-angle/fisheye distortion ((b)$) simultaneously from a single image (2e-6 pixel MSE).
 
 <p align="center">
@@ -111,4 +111,5 @@ PRs, GPU/XPU/CUDA/MPS benchmarks, and experimental spinor shaders are warmly wel
 * **Custom Fused Incidence Kernels (Triton / CUDA / SYCL):** Fusing the [P, 2, 2] @ [2, R] complex contraction and LogSumExp depth reduction into a single custom kernel.
 * **End-to-End Robot SLAM / Visual Odometry Pipeline:** Chaining solve_camera_position_closed_form with dense $SU(2,2)$ photometric tracking on real camera streams.
 * **Oriented Surface Normals & Splat Primitives:** Extending Hermitian point-cloud incidence residuals to oriented surface elements.
+
 
