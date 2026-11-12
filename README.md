@@ -1,37 +1,49 @@
 # twistor-render-core
 
-Experimental differentiable 3D rendering engine built on Roger Penrose's Twistor Theory (CP^3) and complex 2-spinors using PyTorch & Intel XPU.
+Experimental differentiable 3D rendering engine built on Roger Penrose's Twistor Theory ($\mathbb{CP}^3$) and complex 2-spinors using PyTorch & Intel XPU.
 
-Instead of traditional Euclidean 4x4 matrices and discrete rasterization pipelines, this engine evaluates null-geodesic geometry, SU(2) spinor conjugation (X_cam = R_A X R_A^dagger), and complex projective eigenspinor incidence relations (omega^A = i X^{AA'} pi_{A'}) via native torch.complex64 3D GEMM contractions.
+Instead of traditional Euclidean $4\times 4$ matrices and discrete rasterization pipelines, this engine evaluates null-geodesic geometry, $SU(2)$ spinor conjugation ($X_{\text{cam}} = R_A X R_A^\dagger$), $SL(2,\mathbb{C})$ Lorentz boosts, and complex projective eigenspinor incidence relations ($\omega^A = i X^{AA'} \pi_{A'}$) via native `torch.complex64` 3D GEMM contractions.
 
 ![Topological Shape Morphing via Complex Spinor Flow](assets/topological_morphing.gif)
 *Real-time topological shape morphing driven by continuous complex eigenspinor incidence flow.*
 
+![SL(2,C) Relativistic Lorentz Aberration](assets/relativistic_aberration.gif)
+*Relativistic Lorentz aberration ($SL(2,\mathbb{C})$ spinor boost sweeping from $-0.85c$ to $+0.85c$) with zero-Z-buffer eigenspinor depth relief shading.*
+
 ![End-to-end differentiable 6-DoF camera pose recovery](assets/pose_recovery_showcase.png)
-*End-to-end differentiable 6-DoF camera pose recovery (3D position + SU(2) yaw/pitch rotation) optimizing directly through complex spinor incidence residuals on Intel XPU: [Initial Guess | Epoch 45 | Final Recovered | Ground Truth].*
+*End-to-end differentiable 6-DoF camera pose recovery (3D position + $SU(2)$ yaw/pitch rotation) optimizing directly through complex spinor incidence residuals on Intel XPU: [Initial Guess | Epoch 45 | Final Recovered | Ground Truth].*
+
+---
+
+## Why Twistors? (4 Core Advantages)
+
+1. **Singularity-Free $SU(2)$ Spinor Manifold (Zero Gimbal Lock):** Camera rotations are evaluated via unitary spinor conjugation ($X_{\text{cam}} = R_A X R_A^\dagger$), providing smooth, out-of-the-box PyTorch gradients for 6-DoF pose recovery without Euler singularities.
+2. **Twistor Duality & Zero-Z-Buffer Signed Depth:** Null rays map directly to single points in projective twistor space ($\mathbb{CP}^3$). A single Hermitian spinor contraction $\langle \pi \mid \text{diff} \rangle$ simultaneously yields transverse ray distance and exact signed longitudinal depth (`-Im(<pi | diff>)`) without sorting or Z-buffers.
+3. **Static Tensor Shapes & Native `complex64` GEMM Speedup:** All ray-point evaluations run on fixed-shape $[P, 2, 2] \times [2, R]$ complex contractions with zero dynamic boolean masking, eliminating host-device synchronization stalls across Intel XPU, NVIDIA CUDA, and Apple MPS.
+4. **Native Relativistic & Non-Euclidean Optics ($SL(2,\mathbb{C})$):** Celestial ray spinors transform directly under $SL(2,\mathbb{C})$ Lorentz boosts (`boost_v`) and conformal perturbations, enabling differentiable relativistic aberration and inverse velocity recovery without rewriting the pipeline.
 
 ---
 
 ## Repository Structure
 
     twistor-render-core/
-    ├── twistor/          # Core complex64 spinor kernels, SU(2) rotations & Hermitian BVH
-    ├── examples/         # Interactive sandboxes, gravitational lensing, morphing & 6-DoF pose demos
+    ├── twistor/          # Core complex64 spinor kernels, SU(2)/SL(2,C) transforms & Hermitian BVH
+    ├── examples/         # Interactive sandboxes, relativistic aberration, lensing, morphing & 6-DoF demos
     ├── benchmarks/       # XPU / CUDA vs. brute-force scaling telemetry
     └── assets/           # Showcase renders and visual documentation
 
 ---
 
-## Core Architecture (v0.6)
+## Core Architecture (v0.7)
 
-### 1. Native complex64 Eigenspinor Incidence Kernel (`twistor/renderer.py`)
-* **Projective Eigenspinor Testing:** Evaluates exact perpendicular incidence residuals in native `torch.complex64`, cutting intermediate tensor memory payloads in half compared to real FP32 block expansions.
-* **Differentiable 6-DoF SU(2) Spinor Rotations:** Applies unitary SU(2) spinor conjugation alongside complex Hermitian translations, preserving full PyTorch autograd flow across all 6 degrees of freedom (`x, y, z, yaw, pitch`).
-* **SYCL-Index-Safe 3D GEMM:** Replaces 4D broadcasting tensors with direct 3D matrix multiplications (`[P, 2, 2] @ [2, R]`), preventing SYCL 32-bit index overflow errors on Intel Level Zero backends.
+### 1. Native `complex64` Eigenspinor Incidence & $SL(2,\mathbb{C})$ Kernel (`twistor/renderer.py`)
+- **Projective Eigenspinor Testing & Depth Relief:** Evaluates exact perpendicular incidence residuals and signed longitudinal depth (`-Im(<pi | diff>)`) in native `torch.complex64`, cutting intermediate tensor memory payloads in half compared to real FP32 block expansions.
+- **Differentiable 6-DoF $SU(2)$ + $SL(2,\mathbb{C})$ Camera Transforms:** Combines unitary $SU(2)$ spinor conjugation with $SL(2,\mathbb{C})$ Lorentz boost matrices (`B_boost`), preserving full PyTorch autograd flow across spatial pose (`x, y, z, yaw, pitch`) and relativistic velocity (`boost_v = v/c`).
+- **SYCL-Index-Safe Static 3D GEMM:** Replaces 4D broadcasting tensors with fixed-shape 3D matrix multiplications (`[P, 2, 2] @ [2, R]`) and static `torch.where` bounds, preventing SYCL 32-bit index overflow errors and sync stalls on Intel Level Zero backends.
 
 ### 2. Hermitian Bounding-Sphere Cluster Culling (`twistor/bvh.py`)
-* **Spatial Acceleration:** Mitigates the O(M * N) brute-force ray-point bottleneck by sorting points along depth, grouping them into local Hermitian bounding spheres, and culling non-visible clusters via vectorized XPU masking before dense matrix contractions.
-* **Memory-Safe Super-Batching:** Evaluates surviving clusters in cache-friendly super-batches (`2048`) to prevent VRAM thrashing and Level Zero driver resource exhaustion on Intel Arc hardware.
+- **Spatial Acceleration:** Mitigates the $O(M \cdot N)$ brute-force ray-point bottleneck by sorting points along depth, grouping them into local Hermitian bounding spheres, and culling non-visible clusters before dense matrix contractions.
+- **Memory-Safe Super-Batching:** Evaluates surviving clusters in cache-friendly super-batches (`2048`) to prevent VRAM thrashing and Level Zero driver resource exhaustion on Intel Arc hardware.
 
 ---
 
@@ -50,24 +62,32 @@ Measured at 64x64 resolution on Intel XPU hardware:
 ## Quickstart & Interactive Sandboxes
 
 ### 1. Setup Environment
-Install PyTorch along with matplotlib for real-time interactive rendering:
+Install PyTorch along with matplotlib and Pillow for real-time interactive rendering:
 
-    pip install torch torchvision matplotlib
+    pip install torch torchvision matplotlib pillow
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/isopidi-stack/twistor-render-core/blob/main/examples/twistor_colab_demo.ipynb)
 
-### 2. Real-Time Gravitational Lensing (`examples/interactive_lensing.py`)
+### 2. Relativistic Lorentz Aberration & Inverse Velocity Recovery (`examples/relativistic_aberration.py`)
+Applies an exact $SL(2,\mathbb{C})$ spinor Lorentz boost (`boost_v = v/c`) to celestial ray spinors, demonstrating Penrose-Terrell relativistic headlight compression alongside gradient-based velocity recovery from 2D pixels.
+
+    python examples/relativistic_aberration.py
+
+- **What it runs:** Recovers an unknown relativistic speed ($\beta = 0.78c$) purely via `loss.backward()` pixel gradients, then renders a continuous sweep from $-0.85c$ to $+0.85c$ into `assets/relativistic_aberration.gif`.
+- **Why it matters:** Standard $4\times 4$ Euclidean camera pipelines break down when space and time mix under relativistic boosts—in twistor space, Lorentz transformations are native linear operators on 2-spinors.
+
+### 3. Real-Time Gravitational Lensing (`examples/interactive_lensing.py`)
 Simulates Schwarzschild-like spacetime curvature and null geodesic light deflection (producing Einstein rings and optical caustics) driven by complex spinor perturbations rather than screen-space post-processing shaders.
 
     python examples/interactive_lensing.py
 
-* **Controls:** Move your mouse cursor across the window to drag the gravitational mass center in real time.
-* **Why it matters:** Because the entire ray-bundle projection is differentiable via PyTorch autograd, this architecture scales to inverse astrophysics problems—reconstructing hidden lensing mass distributions directly from observed distortions.
+- **Controls:** Move your mouse cursor across the window to drag the gravitational mass center in real time.
+- **Why it matters:** Because the entire ray-bundle projection is differentiable via PyTorch autograd, this architecture scales to inverse astrophysics problems—reconstructing hidden lensing mass distributions directly from observed distortions.
 
-### 3. Topological Shape Morphing (`examples/topological_morphing.py`)
+### 4. Topological Shape Morphing (`examples/topological_morphing.py`)
 Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between a toroidal manifold and a harmonic sphere) governed by complex eigenspinor incidence blending rather than rigid triangle-mesh re-rigging.
 
     python examples/topological_morphing.py
 
-* **Controls:** Click and drag inside the 3D viewport to orbit around the morphing manifold while it deforms continuously.
-* **Why it matters:** Evaluating surfaces through spinor incidence parameters creates smooth, continuous gradient paths across arbitrary shape spaces without mesh tearing or discrete vertex correspondence constraints.
+- **Controls:** Click and drag inside the 3D viewport to orbit around the morphing manifold while it deforms continuously.
+- **Why it matters:** Evaluating surfaces through spinor incidence parameters creates smooth, continuous gradient paths across arbitrary shape spaces without mesh tearing or discrete vertex correspondence constraints.
