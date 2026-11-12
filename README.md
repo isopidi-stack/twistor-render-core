@@ -4,6 +4,9 @@ Experimental differentiable 3D rendering engine built on Roger Penrose's Twistor
 
 Instead of traditional Euclidean 4x4 matrices and discrete rasterization pipelines, this engine evaluates null-geodesic geometry, SU(2) spinor conjugation (X_cam = R_A X R_A^dagger), and complex projective eigenspinor incidence relations (omega^A = i X^{AA'} pi_{A'}) via native torch.complex64 3D GEMM contractions.
 
+![Topological Shape Morphing via Complex Spinor Flow](assets/topological_morphing.gif)
+*Real-time topological shape morphing driven by continuous complex eigenspinor incidence flow.*
+
 ![End-to-end differentiable 6-DoF camera pose recovery](assets/pose_recovery_showcase.png)
 *End-to-end differentiable 6-DoF camera pose recovery (3D position + SU(2) yaw/pitch rotation) optimizing directly through complex spinor incidence residuals on Intel XPU: [Initial Guess | Epoch 45 | Final Recovered | Ground Truth].*
 
