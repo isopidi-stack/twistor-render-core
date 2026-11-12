@@ -51,6 +51,8 @@ Install PyTorch along with matplotlib for real-time interactive rendering:
 
     pip install torch torchvision matplotlib
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/isopidi-stack/twistor-render-core/blob/main/examples/twistor_colab_demo.ipynb)
+
 ### 2. Real-Time Gravitational Lensing (`examples/interactive_lensing.py`)
 Simulates Schwarzschild-like spacetime curvature and null geodesic light deflection (producing Einstein rings and optical caustics) driven by complex spinor perturbations rather than screen-space post-processing shaders.
 
