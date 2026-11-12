@@ -42,41 +42,55 @@ def pixel_uv_to_world_spinor(u, v, R_A):
 
 def solve_camera_position_closed_form(landmarks_xyz, ray_spinors_pi):
     """
-    Solves the projective twistor incidence constraint:
-        (X_i^{AA'} - C^{AA'}) pi_{i, A'} = lambda_i * pi_i^A
-    by projecting orthogonal to pi_i (eliminating unknown depth lambda_i)
-    to recover the exact 3D robot position C = (c_x, c_y, c_z) in ONE linear step.
+    Fused float32 normal-equation solver for projective twistor incidence:
+        <pi_perp | (X_i - C) | pi> = 0
+    Eliminates [N, 2, 2] complex Hermitian allocations and complex concatenations
+    for high-throughput scaling up to 100,000+ landmarks.
     """
-    inv_sqrt2 = 0.7071067811865475
-    X_herm = points_to_complex_hermitian(landmarks_xyz)  # [N, 2, 2]
+    # Extract real & imaginary parts of pi0 = a0 + i*b0, pi1 = a1 + i*b1
+    a0 = ray_spinors_pi[:, 0].real
+    b0 = ray_spinors_pi[:, 0].imag
+    a1 = ray_spinors_pi[:, 1].real
+    b1 = ray_spinors_pi[:, 1].imag
 
-    # Orthogonal spinor dual to pi = [pi0, pi1]^T is pi_perp = [-conj(pi1), conj(pi0)]^T
-    # Taking <pi_perp | (X_i - C) | pi> = 0 eliminates longitudinal depth lambda_i!
-    pi0 = ray_spinors_pi[:, 0]
-    pi1 = ray_spinors_pi[:, 1]
-    pi_perp_conj = torch.stack([-pi1, pi0], dim=-1)  # [N, 2]
+    # Quadratic spinor basis terms (factor 1/sqrt(2) cancels on both sides)
+    # p0_sq = pi0^2 = (a0^2 - b0^2) + i*(2*a0*b0)
+    # p1_sq = pi1^2 = (a1^2 - b1^2) + i*(2*a1*b1)
+    # p0_p1 = pi0*pi1 = (a0*a1 - b0*b1) + i*(a0*b1 + b0*a1)
+    re_p0_sq = a0 * a0 - b0 * b0
+    im_p0_sq = 2.0 * a0 * b0
+    re_p1_sq = a1 * a1 - b1 * b1
+    im_p1_sq = 2.0 * a1 * b1
+    re_p0_p1 = a0 * a1 - b0 * b1
+    im_p0_p1 = a0 * b1 + b0 * a1
 
-    # Scalar complex RHS for each landmark: b_i = pi_perp^dagger @ X_i @ pi
-    X_pi = torch.einsum("nab,nb->na", X_herm, ray_spinors_pi)
-    rhs_scalar = torch.sum(pi_perp_conj * X_pi, dim=-1)  # [N] complex64
+    # Real and imaginary rows of [coeff_cx, coeff_cy, coeff_cz]:
+    # coeff_cx = pi0^2 - pi1^2
+    # coeff_cy = i * (pi0^2 + pi1^2) -> Re = -(im_p0_sq + im_p1_sq), Im = (re_p0_sq + re_p1_sq)
+    # coeff_cz = -2 * pi0 * pi1
+    r_cx = re_p0_sq - re_p1_sq
+    r_cy = -(im_p0_sq + im_p1_sq)
+    r_cz = -2.0 * re_p0_p1
 
-    # Linear coefficients for [cx, cy, cz] in pi_perp^dagger @ C @ pi:
-    # C @ pi = (1/sqrt(2)) * [cz*pi0 + (cx - i*cy)*pi1, (cx + i*cy)*pi0 - cz*pi1]^T
-    # Contracting with [-pi1, pi0]:
-    #   coeff_cx = (1/sqrt(2)) * (pi0^2 - pi1^2)
-    #   coeff_cy = (i/sqrt(2)) * (pi0^2 + pi1^2)
-    #   coeff_cz = (-2/sqrt(2)) * (pi0 * pi1)
-    coeff_cx = inv_sqrt2 * (pi0 * pi0 - pi1 * pi1)
-    coeff_cy = 1j * inv_sqrt2 * (pi0 * pi0 + pi1 * pi1)
-    coeff_cz = -2.0 * inv_sqrt2 * (pi0 * pi1)
+    i_cx = im_p0_sq - im_p1_sq
+    i_cy = re_p0_sq + re_p1_sq
+    i_cz = -2.0 * im_p0_p1
 
-    M_complex = torch.stack([coeff_cx, coeff_cy, coeff_cz], dim=-1)  # [N, 3] complex64
+    x = landmarks_xyz[:, 0]
+    y = landmarks_xyz[:, 1]
+    z = landmarks_xyz[:, 2]
 
-    # Stack real and imaginary equations into a [2N, 3] real system
-    A_real = torch.cat([M_complex.real, M_complex.imag], dim=0)  # [2N, 3]
-    b_real = torch.cat([rhs_scalar.real, rhs_scalar.imag], dim=0).unsqueeze(-1)  # [2N, 1]
+    # RHS scalar <pi_perp | X_i | pi> = r_cx*x + r_cy*y + r_cz*z + i*(i_cx*x + i_cy*y + i_cz*z)
+    rhs_r = r_cx * x + r_cy * y + r_cz * z
+    rhs_i = i_cx * x + i_cy * y + i_cz * z
 
-    # Native XPU/CUDA/CPU closed-form normal equations (zero host fallback)
+    # Stack [N, 3] real and [N, 3] imag into [2N, 3] directly in float32
+    A_real = torch.cat([
+        torch.stack([r_cx, r_cy, r_cz], dim=-1),
+        torch.stack([i_cx, i_cy, i_cz], dim=-1),
+    ], dim=0)
+    b_real = torch.cat([rhs_r, rhs_i], dim=0).unsqueeze(-1)
+
     ATA = torch.matmul(A_real.mT, A_real) + 1e-9 * torch.eye(3, device=A_real.device)
     ATb = torch.matmul(A_real.mT, b_real)
     sol = torch.linalg.solve(ATA, ATb).squeeze(-1)
@@ -239,3 +253,4 @@ def run_kidnapped_robot_demo():
 
 if __name__ == "__main__":
     run_kidnapped_robot_demo()
+

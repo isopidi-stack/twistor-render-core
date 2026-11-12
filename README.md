@@ -113,3 +113,16 @@ PRs, GPU/XPU/CUDA/MPS benchmarks, and experimental spinor shaders are warmly wel
 * **Oriented Surface Normals & Splat Primitives:** Extending Hermitian point-cloud incidence residuals to oriented surface elements.
 
 
+
+### Scaling Benchmark: Twistor Spinor Kernel vs. Classical Ray Triangulation (Intel XPU)
+
+Tested via python -m examples.benchmark_scaling across  = 6$ to  = 100{,}000$ 3D landmarks (with known IMU orientation):
+
+| Landmarks ($) | Fused Twistor (ms) | Classical 3D (ms) | Speedup | Max Numerical Diff |
+| :--- | :---: | :---: | :---: | :---: |
+| **6** |  .5401 ms | 1.2813 ms | **2.37x** | 1.71e-06 |
+| **100** |  .5201 ms | 1.2852 ms | **2.47x** | 7.16e-07 |
+| **1,000** |  .5297 ms | 1.2775 ms | **2.41x** | 1.44e-06 |
+| **10,000** |  .5214 ms | 1.2480 ms | **2.39x** | 1.92e-06 |
+| **50,000** |  .5360 ms | 1.7061 ms | **3.18x** | 2.16e-06 |
+| **100,000** |  .5508 ms | 2.3386 ms | **4.25x** | 2.17e-06 |
