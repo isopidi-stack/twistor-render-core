@@ -1,4 +1,9 @@
-# twistor-render-core
+﻿# twistor-render-core
+
+[![CI](https://github.com/isopidi-stack/twistor-render-core/actions/workflows/ci.yml/badge.svg)](https://github.com/isopidi-stack/twistor-render-core/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/isopidi-stack/twistor-render-core?color=blue)](https://github.com/isopidi-stack/twistor-render-core/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 
 Experimental differentiable 3D rendering engine built on Roger Penrose's Twistor Theory ($\mathbb{CP}^3$) and complex 2-spinors using PyTorch & Intel XPU.
 
@@ -27,10 +32,10 @@ Instead of traditional Euclidean $4\times 4$ matrices and discrete rasterization
 ## Repository Structure
 
     twistor-render-core/
-    РІвЂќСљРІвЂќР‚РІвЂќР‚ twistor/          # Core complex64 spinor kernels, SU(2)/SL(2,C) transforms & Hermitian BVH
-    РІвЂќСљРІвЂќР‚РІвЂќР‚ examples/         # Interactive sandboxes, relativistic aberration, lensing, morphing & 6-DoF demos
-    РІвЂќСљРІвЂќР‚РІвЂќР‚ benchmarks/       # XPU / CUDA vs. brute-force scaling telemetry
-    РІвЂќвЂќРІвЂќР‚РІвЂќР‚ assets/           # Showcase renders and visual documentation
+    Р Р†РІР‚СњРЎС™Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ twistor/          # Core complex64 spinor kernels, SU(2)/SL(2,C) transforms & Hermitian BVH
+    Р Р†РІР‚СњРЎС™Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ examples/         # Interactive sandboxes, relativistic aberration, lensing, morphing & 6-DoF demos
+    Р Р†РІР‚СњРЎС™Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ benchmarks/       # XPU / CUDA vs. brute-force scaling telemetry
+    Р Р†РІР‚СњРІР‚СњР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ assets/           # Showcase renders and visual documentation
 
 ---
 
@@ -74,7 +79,7 @@ Applies an exact $SL(2,\mathbb{C})$ spinor Lorentz boost (`boost_v = v/c`) to ce
     python examples/relativistic_aberration.py
 
 - **What it runs:** Recovers an unknown relativistic speed ($\beta = 0.78c$) purely via `loss.backward()` pixel gradients, then renders a continuous sweep from $-0.85c$ to $+0.85c$ into `assets/relativistic_aberration.gif`.
-- **Why it matters:** Standard $4\times 4$ Euclidean camera pipelines break down when space and time mix under relativistic boostsРІР‚вЂќin twistor space, Lorentz transformations are native linear operators on 2-spinors.
+- **Why it matters:** Standard $4\times 4$ Euclidean camera pipelines break down when space and time mix under relativistic boostsР Р†Р вЂљРІР‚Сњin twistor space, Lorentz transformations are native linear operators on 2-spinors.
 
 ### 3. Real-Time Gravitational Lensing (`examples/interactive_lensing.py`)
 Simulates Schwarzschild-like spacetime curvature and null geodesic light deflection (producing Einstein rings and optical caustics) driven by complex spinor perturbations rather than screen-space post-processing shaders.
@@ -82,7 +87,7 @@ Simulates Schwarzschild-like spacetime curvature and null geodesic light deflect
     python examples/interactive_lensing.py
 
 - **Controls:** Move your mouse cursor across the window to drag the gravitational mass center in real time.
-- **Why it matters:** Because the entire ray-bundle projection is differentiable via PyTorch autograd, this architecture scales to inverse astrophysics problemsРІР‚вЂќreconstructing hidden lensing mass distributions directly from observed distortions.
+- **Why it matters:** Because the entire ray-bundle projection is differentiable via PyTorch autograd, this architecture scales to inverse astrophysics problemsР Р†Р вЂљРІР‚Сњreconstructing hidden lensing mass distributions directly from observed distortions.
 
 ### 4. Topological Shape Morphing (`examples/topological_morphing.py`)
 Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between a toroidal manifold and a harmonic sphere) governed by complex eigenspinor incidence blending rather than rigid triangle-mesh re-rigging.
@@ -125,7 +130,7 @@ Evaluated end-to-end across a 30-second (600-frame) 3D Micro Aerial Vehicle (MAV
 | Telemetry Regime (35% Outliers + Pixel Noise) | ATE RMSE | Max Error | Inlier Recall | Mean Latency (XPU) |
 | :--- | :---: | :---: | :---: | :---: |
 | **Tactical / Optical-Grade Attitude** | **`0.88 mm`** | `2.24 mm` | **`100.0%` (`65.0% / 65.0%`)** | **`2.95 ms` / frame (`340 Hz`)** |
-| **MEMS IMU + `0.15В°` Attitude Jitter** | **`17.70 mm`** | `52.34 mm` | **`100.0%` (`65.0% / 65.0%`)** | **`2.62 ms` / frame (`382 Hz`)** |
+| **MEMS IMU + `0.15Р’В°` Attitude Jitter** | **`17.70 mm`** | `52.34 mm` | **`100.0%` (`65.0% / 65.0%`)** | **`2.62 ms` / frame (`382 Hz`)** |
 
 ![EuRoC Drone Trajectory](assets/euroc_drone_trajectory.png)
 
@@ -160,7 +165,7 @@ Tested across sparse point-cloud scaling and heavy outlier poisoning:
 
 ---
 
-## ### 🛡 AI Vector Shield & RAG Pre-Filter (Empirical Audit)
+## ### рџ›Ў AI Vector Shield & RAG Pre-Filter (Empirical Audit)
 
 Calibrated $\mathbb{CP}^3$ projective subspace verification designed as a **high-throughput OOD & corruption pre-filter** for vector ingestion pipelines.
 
@@ -168,7 +173,7 @@ Calibrated $\mathbb{CP}^3$ projective subspace verification designed as a **high
   <img src="assets/cp3_manifold_shield.png" alt="CP^3 Twistor Manifold Vector Shield" width="750"/>
 </p>
 
-#### 🔭 Honest Commercial Audit & Scope Boundaries (`examples/commercial_rag_audit.py`)
+#### рџ”­ Honest Commercial Audit & Scope Boundaries (`examples/commercial_rag_audit.py`)
 To avoid synthetic benchmark bias, `AIVectorShield` was audited against a **full-rank power-law spectrum ($1/k^{0.6}$)** mimicking real 768-dimensional transformer embeddings across multi-cluster business domains:
 
 | Eviluation Regime | Metric | Result | Engineering Takeaway |
@@ -181,7 +186,7 @@ To avoid synthetic benchmark bias, `AIVectorShield` was audited against a **full
 
 ---
 
-### 🔌 Drop-In RAG Pipeline Integration
+### рџ”Њ Drop-In RAG Pipeline Integration
 
 #### 1. Calibrate & Filter at Ingestion
 ```python
@@ -204,3 +209,4 @@ vector_db.add(embeddings=clean_embeddings.numpy(), documents=clean_chunks)
 #### 2. Reproduce Locally
 * **End-to-End RAG Demo:** `python examples/rag_pipeline_demo.py`
 * **Full-Rank Commercial Audit:** `python examples/commercial_rag_audit.py`
+

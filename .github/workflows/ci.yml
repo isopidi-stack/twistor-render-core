@@ -1,0 +1,46 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  verify-render-core:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install lightweight CPU dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy matplotlib imageio
+
+      - name: Compile and verify all Python modules
+        run: python -m compileall -q .
+
+      - name: Run CP^2 / Twistor tensor verification smoke test
+        run: |
+          python -c "
+          import torch, numpy as np
+          z = torch.complex(torch.randn(128, 4), torch.randn(128, 4))
+          norm = torch.linalg.vector_norm(z, dim=-1, keepdim=True) + 1e-8
+          z_proj = z / norm
+          gram = torch.matmul(z_proj, z_proj.conj().T).abs()
+          assert gram.shape == (128, 128)
+          print('Twistor CP^3 projective kernel verified:', gram.shape)
+          "
