@@ -1,4 +1,4 @@
-﻿"""
+"""
 twistor-vision (twistor)
 ========================
 Sub-millisecond 3D robot localization, batched GPU Spinor RANSAC, and
@@ -12,9 +12,9 @@ from twistor.geometry import get_best_device
 from twistor.renderer import (
     generate_su22_camera_matrix,
     points_to_complex_hermitian,
-    render_twistor_splats,
 )
 from twistor.localization import (
+    pixel_to_stereographic_uv,
     pixel_uv_to_world_spinor,
     solve_camera_position_closed_form,
 )
@@ -92,7 +92,6 @@ def calibrate_su22(
         R_dag = R_A.conj().mT
         X_rel = torch.matmul(R_A, torch.matmul(X_world - C_world, R_dag))
 
-        # Extract camera-frame coordinates & apply conformal dilation + special conformal boost
         x_c = X_rel[:, 1, 0].real * 1.41421356
         y_c = X_rel[:, 1, 0].imag * 1.41421356
         z_c = torch.clamp(X_rel[:, 0, 0].real * 1.41421356, min=1e-4)
@@ -126,10 +125,10 @@ __all__ = [
     "localize",
     "localize_ransac",
     "calibrate_su22",
+    "pixel_to_stereographic_uv",
     "pixel_uv_to_world_spinor",
     "solve_camera_position_closed_form",
     "solve_camera_position_ransac",
     "generate_su22_camera_matrix",
     "points_to_complex_hermitian",
-    "render_twistor_splats",
 ]

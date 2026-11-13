@@ -1,4 +1,4 @@
-﻿"""
+"""
 Closed-Form Projective Twistor 3D Localization
 ==============================================
 Fused float32 spinor incidence solver for 3-DoF camera position recovery
@@ -65,3 +65,16 @@ def solve_camera_position_closed_form(landmarks_xyz, ray_spinors_pi):
     ATA = torch.matmul(A_real.mT, A_real) + 1e-9 * torch.eye(3, device=A_real.device)
     ATb = torch.matmul(A_real.mT, b_real)
     return torch.linalg.solve(ATA, ATb).squeeze(-1)
+
+
+def pixel_to_stereographic_uv(px, py, fx, fy, cx, cy):
+    """
+    Converts standard pinhole camera pixel coordinates (px, py) with intrinsics
+    (fx, fy, cx, cy) into exact celestial-sphere stereographic coordinates (u, v)
+    expected by twistor.localize() and twistor.localize_ransac().
+    """
+    xn = (px - cx) / fx
+    yn = (py - cy) / fy
+    r = torch.sqrt(xn * xn + yn * yn + 1.0)
+    denom = r + 1.0
+    return torch.stack([xn / denom, yn / denom], dim=-1)
