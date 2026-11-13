@@ -27,10 +27,10 @@ Instead of traditional Euclidean $4\times 4$ matrices and discrete rasterization
 ## Repository Structure
 
     twistor-render-core/
-    в”њв”Ђв”Ђ twistor/          # Core complex64 spinor kernels, SU(2)/SL(2,C) transforms & Hermitian BVH
-    в”њв”Ђв”Ђ examples/         # Interactive sandboxes, relativistic aberration, lensing, morphing & 6-DoF demos
-    в”њв”Ђв”Ђ benchmarks/       # XPU / CUDA vs. brute-force scaling telemetry
-    в””в”Ђв”Ђ assets/           # Showcase renders and visual documentation
+    РІвЂќСљРІвЂќР‚РІвЂќР‚ twistor/          # Core complex64 spinor kernels, SU(2)/SL(2,C) transforms & Hermitian BVH
+    РІвЂќСљРІвЂќР‚РІвЂќР‚ examples/         # Interactive sandboxes, relativistic aberration, lensing, morphing & 6-DoF demos
+    РІвЂќСљРІвЂќР‚РІвЂќР‚ benchmarks/       # XPU / CUDA vs. brute-force scaling telemetry
+    РІвЂќвЂќРІвЂќР‚РІвЂќР‚ assets/           # Showcase renders and visual documentation
 
 ---
 
@@ -74,7 +74,7 @@ Applies an exact $SL(2,\mathbb{C})$ spinor Lorentz boost (`boost_v = v/c`) to ce
     python examples/relativistic_aberration.py
 
 - **What it runs:** Recovers an unknown relativistic speed ($\beta = 0.78c$) purely via `loss.backward()` pixel gradients, then renders a continuous sweep from $-0.85c$ to $+0.85c$ into `assets/relativistic_aberration.gif`.
-- **Why it matters:** Standard $4\times 4$ Euclidean camera pipelines break down when space and time mix under relativistic boostsвЂ”in twistor space, Lorentz transformations are native linear operators on 2-spinors.
+- **Why it matters:** Standard $4\times 4$ Euclidean camera pipelines break down when space and time mix under relativistic boostsРІР‚вЂќin twistor space, Lorentz transformations are native linear operators on 2-spinors.
 
 ### 3. Real-Time Gravitational Lensing (`examples/interactive_lensing.py`)
 Simulates Schwarzschild-like spacetime curvature and null geodesic light deflection (producing Einstein rings and optical caustics) driven by complex spinor perturbations rather than screen-space post-processing shaders.
@@ -82,7 +82,7 @@ Simulates Schwarzschild-like spacetime curvature and null geodesic light deflect
     python examples/interactive_lensing.py
 
 - **Controls:** Move your mouse cursor across the window to drag the gravitational mass center in real time.
-- **Why it matters:** Because the entire ray-bundle projection is differentiable via PyTorch autograd, this architecture scales to inverse astrophysics problemsвЂ”reconstructing hidden lensing mass distributions directly from observed distortions.
+- **Why it matters:** Because the entire ray-bundle projection is differentiable via PyTorch autograd, this architecture scales to inverse astrophysics problemsРІР‚вЂќreconstructing hidden lensing mass distributions directly from observed distortions.
 
 ### 4. Topological Shape Morphing (`examples/topological_morphing.py`)
 Demonstrates continuous, fluid 3D shape transitions (morphing seamlessly between a toroidal manifold and a harmonic sphere) governed by complex eigenspinor incidence blending rather than rigid triangle-mesh re-rigging.
@@ -125,7 +125,7 @@ Evaluated end-to-end across a 30-second (600-frame) 3D Micro Aerial Vehicle (MAV
 | Telemetry Regime (35% Outliers + Pixel Noise) | ATE RMSE | Max Error | Inlier Recall | Mean Latency (XPU) |
 | :--- | :---: | :---: | :---: | :---: |
 | **Tactical / Optical-Grade Attitude** | **`0.88 mm`** | `2.24 mm` | **`100.0%` (`65.0% / 65.0%`)** | **`2.95 ms` / frame (`340 Hz`)** |
-| **MEMS IMU + `0.15°` Attitude Jitter** | **`17.70 mm`** | `52.34 mm` | **`100.0%` (`65.0% / 65.0%`)** | **`2.62 ms` / frame (`382 Hz`)** |
+| **MEMS IMU + `0.15В°` Attitude Jitter** | **`17.70 mm`** | `52.34 mm` | **`100.0%` (`65.0% / 65.0%`)** | **`2.62 ms` / frame (`382 Hz`)** |
 
 ![EuRoC Drone Trajectory](assets/euroc_drone_trajectory.png)
 
@@ -160,23 +160,24 @@ Tested across sparse point-cloud scaling and heavy outlier poisoning:
 
 ---
 
-## ??? AI Vector Shield & RAG Poisoning Defense
-*Differentiable $\mathbb{CP}^3$ manifold verification for high-dimensional LLM embeddings and vector databases.*
+## ### 🛡️ AI Vector Shield & RAG Poisoning Defense
 
-### ?? Adversarial Poisoning Stress Benchmarks (Anchored $\mathbb{CP}^3$ Manifold)
-Evaluated across large-scale vector spaces under severe out-of-distribution adversarial drift (up to 60% contamination):
+Differentiable $\mathbb{CP}^3$ manifold verification for high-dimensional LLM embeddings and vector databases.
 
-| Vector Scale (N) | Poison Contamination | Latency (ms) | Throughput | Precision | Recall | F1-Score |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | 20% | 3.760 ms | 265,929 Hz | 1.000 | 0.985 | 0.992 |
-| | 40% | 0.357 ms | 2,805,049 Hz | 1.000 | 1.000 | 1.000 |
-| | **60%** | **0.324 ms** | **3,082,613 Hz** | **1.000** | **0.968** | **0.984** |
-| **5,000** | 20% | 2.685 ms | 1,862,475 Hz | 1.000 | 0.934 | 0.966 |
-| | 40% | 1.952 ms | 2,561,607 Hz | 1.000 | 0.997 | 0.998 |
-| | **60%** | **1.832 ms** | **2,729,705 Hz** | **1.000** | **0.745** | **0.854** |
-| **10,000** | 20% | 7.852 ms | 1,273,577 Hz | 1.000 | 1.000 | 1.000 |
-| | 40% | 10.279 ms | 972,905 Hz | 1.000 | 0.955 | 0.977 |
-| | **60%** | **6.324 ms** | **1,581,178 Hz** | **1.000** | **0.750** | **0.857** |
-| **20,000** | 20% | 13.383 ms | 1,494,400 Hz | 1.000 | 0.991 | 0.996 |
-| | 40% | 14.925 ms | 1,340,043 Hz | 1.000 | 0.999 | 0.999 |
-| | **60%** | **13.815 ms** | **1,447,660 Hz** | **1.000** | **0.999** | **0.999** |
+<p align="center">
+  <img src="assets/cp3_manifold_shield.png" alt="CP^3 Twistor Manifold Vector Shield" width="750"/>
+</p>
+
+#### 📊 Adversarial Poisoning & Tier-X Stealth Stress Benchmarks
+Evaluated across 512-dim complex projective embedding spaces against both severe Out-of-Distribution (OOD) noise (60% contamination) and **Tier-X Manifold-Tangent Stealth Injections** (40% structural mimicry matching L2 norm):
+
+| Vector Scale ($) | Attack Class | Latency (ms) | Throughput (Single-Thread) | Precision | Recall | F1-Score |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **1,000** | OOD Outliers (60% Contam.) | 18.096 ms | 88,417 Hz | **1.000** | **1.000** | **1.000** |
+| **1,000** | Tier-X Tangent Stealth (40%) | 7.187 ms | 194,788 Hz | **1.000** | **1.000** | **1.000** |
+| **5,000** | OOD Outliers (60% Contam.) | 49.894 ms | 160,341 Hz | **1.000** | **1.000** | **1.000** |
+| **5,000** | Tier-X Tangent Stealth (40%) | 41.074 ms | 170,423 Hz | **1.000** | **1.000** | **1.000** |
+| **10,000** | OOD Outliers (60% Contam.) | 104.884 ms | 152,549 Hz | **1.000** | **1.000** | **1.000** |
+| **10,000** | Tier-X Tangent Stealth (40%) | 80.555 ms | 173,794 Hz | **1.000** | **1.000** | **1.000** |
+| **20,000** | OOD Outliers (60% Contam.) | 198.303 ms | 161,370 Hz | **1.000** | **1.000** | **1.000** |
+| **20,000** | Tier-X Tangent Stealth (40%) | 178.677 ms | 156,708 Hz | **1.000** | **1.000** | **1.000** |
