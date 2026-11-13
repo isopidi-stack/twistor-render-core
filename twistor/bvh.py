@@ -77,14 +77,12 @@ def cull_and_render_clustered(
         generate_transformed_ray_spinors,
     )
 
-    R_A, R_D = generate_su22_camera_matrix(
+    R_A, B_boost, B_conf = generate_su22_camera_matrix(
         yaw=yaw, pitch=pitch, boost_v=boost_v, zoom=zoom, device=device
     )
     c_tensor = torch.tensor([0.0, 0.0, -2.0], dtype=torch.float32, device=device)
 
-    omega_spinor, pi_spinor = generate_transformed_ray_spinors(
-        width, height, c_tensor, R_A, R_D, device=device
-    )
+    omega_spinor, pi_spinor = generate_transformed_ray_spinors(width, height, c_tensor, R_A, B_boost, B_conf, zoom=zoom, device=device)
 
     cam_world_pos = torch.tensor([0.0, 0.0, -2.0], dtype=torch.float32, device=device)
 

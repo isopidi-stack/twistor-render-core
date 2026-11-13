@@ -1,4 +1,4 @@
-﻿"""
+"""
 Batched GPU Spinor RANSAC for Outlier-Robust 3D Camera Localization
 ===================================================================
 Evaluates hundreds of minimal 3-landmark twistor hypotheses in parallel
@@ -8,7 +8,7 @@ spinor refinement over clean inliers.
 """
 
 import torch
-from examples.instant_robot_snap import solve_camera_position_closed_form
+from twistor.localization import solve_camera_position_closed_form
 
 
 def _build_spinor_linear_rows(landmarks_xyz, ray_spinors_pi):
