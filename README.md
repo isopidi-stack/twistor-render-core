@@ -160,70 +160,47 @@ Tested across sparse point-cloud scaling and heavy outlier poisoning:
 
 ---
 
-## ### 🛡️ AI Vector Shield & RAG Poisoning Defense
+## ### 🛡 AI Vector Shield & RAG Pre-Filter (Empirical Audit)
 
-Differentiable $\mathbb{CP}^3$ manifold verification for high-dimensional LLM embeddings and vector databases.
+Calibrated $\mathbb{CP}^3$ projective subspace verification designed as a **high-throughput OOD & corruption pre-filter** for vector ingestion pipelines.
 
 <p align="center">
   <img src="assets/cp3_manifold_shield.png" alt="CP^3 Twistor Manifold Vector Shield" width="750"/>
 </p>
 
-#### 📊 Adversarial Poisoning & Tier-X Stealth Stress Benchmarks
-Evaluated across 512-dim complex projective embedding spaces against both severe Out-of-Distribution (OOD) noise (60% contamination) and **Tier-X Manifold-Tangent Stealth Injections** (40% structural mimicry matching L2 norm):
+#### 🔭 Honest Commercial Audit & Scope Boundaries (`examples/commercial_rag_audit.py`)
+To avoid synthetic benchmark bias, `AIVectorShield` was audited against a **full-rank power-law spectrum ($1/k^{0.6}$)** mimicking real 768-dimensional transformer embeddings across multi-cluster business domains:
 
-| Vector Scale ($) | Attack Class | Latency (ms) | Throughput (Single-Thread) | Precision | Recall | F1-Score |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **1,000** | OOD Outliers (60% Contam.) | 18.096 ms | 88,417 Hz | **1.000** | **1.000** | **1.000** |
-| **1,000** | Tier-X Tangent Stealth (40%) | 7.187 ms | 194,788 Hz | **1.000** | **1.000** | **1.000** |
-| **5,000** | OOD Outliers (60% Contam.) | 49.894 ms | 160,341 Hz | **1.000** | **1.000** | **1.000** |
-| **5,000** | Tier-X Tangent Stealth (40%) | 41.074 ms | 170,423 Hz | **1.000** | **1.000** | **1.000** |
-| **10,000** | OOD Outliers (60% Contam.) | 104.884 ms | 152,549 Hz | **1.000** | **1.000** | **1.000** |
-| **10,000** | Tier-X Tangent Stealth (40%) | 80.555 ms | 173,794 Hz | **1.000** | **1.000** | **1.000** |
-| **20,000** | OOD Outliers (60% Contam.) | 198.303 ms | 161,370 Hz | **1.000** | **1.000** | **1.000** |
-| **20,000** | Tier-X Tangent Stealth (40%) | 178.677 ms | 156,708 Hz | **1.000** | **1.000** | **1.000** |
+| Eviluation Regime | Metric | Result | Engineering Takeaway |
+| :--- | :---: | :---: | :--- |
+| **OOD / Garbled Injection** (corrupted chunks, token dumps) | ROC-AUC / F1 | **1.000** / **[0.945]** | Reliable, zero-overhead gatekeeper for non-manifold corruption at ~280k-420k Hz. |
+| **Unseen Business Domain Shift** (new HR/Legal topics not in calibration) | Acceptance Rate | **0.0%** (100% FP) | Global subspace calibration is domain-bound; requires per-collection or local cluster fitting. |
+| **Stealth Semantic Prompt Injection** ($\epsilon = 0.25$ in-spectrum payload) | ROC-AUC / F1 | **0.553** / **0.643** | Near random chance; unsupervised geometry cannot replace supervised semantic guardrails (e.g., DeBERTA / Llama-Guard) for subtle text tampering. |
+
+> **Architectural Role:** Use `AIVectorShield` as a **Stage-1 ingestion pre-filter** (calibrated per document collection) to strip broken encodings, sensor/pipeline glitches, and OOD garbage before invoking heavier neural prompt-injection classifiers in Stage 2.
+
+---
+
 ### 🔌 Drop-In RAG Pipeline Integration
 
-`AIVectorShield` acts as a zero-overhead geometric firewall sitting directly between your embedding model and your vector store (FAISS, ChromaDB, Qdrant, or Pinecone). Because it operates via matrix-free $\mathbb{CP}^3$ projective verification rather than $O(N^2)$ distance matrices, it filters corrupted or poisoned chunks before they ever touch your index or LLM context window.
-
-#### 1. Ingestion Firewall (Pre-Indexing Defense)
-Filter incoming document embeddings in real time before writing them to your vector database:
-
+#### 1. Calibrate & Filter at Ingestion
 ```python
 import torch
 from examples.ai_vector_shield import AIVectorShield
 
-# Initialize the CP^3 manifold shield
-shield = AIVectorShield(dim=512, threshold=0.65)
+# 1. Calibrate the CP^3 projective basis on trusted collection embeddings (e.g., 768d)
+shield = AIVectorShield(dim=768, latent_rank=32, quantile=0.95)
+shield.fit(trusted_collection_embeddings)  # Shape: [M, 768]
 
-# Batch of incoming document embeddings from your encoder (e.g., BGE, OpenAI, E5)
-incoming_embeddings = get_document_embeddings(chunks)  # shape: [N, 512]
-incoming_tensor = torch.tensor(incoming_embeddings)
-
-# Verify manifold incidence (1 = clean inlier, 0 = poisoned/adversarial outlier)
+# 2. Screen incoming document chunks for OOD/structural corruption before indexing
+incoming_tensor = torch.tensor(get_document_embeddings(chunks))
 valid_mask = shield.verify(incoming_tensor).bool()
 
-# Keep only geometrically verified chunks and embeddings
 clean_embeddings = incoming_tensor[valid_mask]
 clean_chunks = [c for c, is_valid in zip(chunks, valid_mask.tolist()) if is_valid]
-
-# Safe to index into FAISS / ChromaDB / Qdrant
 vector_db.add(embeddings=clean_embeddings.numpy(), documents=clean_chunks)
 ```
 
-#### 2. Query-Time Retrieval Guard (Prompt-Injection Defense)
-Screen user query embeddings before executing similarity search to block adversarial query perturbations:
-
-```python
-query_vec = torch.tensor(embed_query(user_prompt)).unsqueeze(0)
-
-if shield.verify(query_vec).item() == 1:
-    results = vector_db.search(query_vec.numpy(), top_k=5)
-else:
-    raise SecurityError("Adversarial query drift detected: CP^3 incidence check failed.")
-```
-
-#### Why Drop It In?
-* **Zero Retraining Required:** Works out-of-the-box on top of any existing embedding model without fine-tuning or labeled attack datasets.
-* **Sub-Millisecond Latency:** Adds **< 0.1 ms** per query batch, preserving real-time RAG responsiveness at scale.
-* **Catches Stealth Mimicry:** Blocks both obvious out-of-distribution (OOD) noise and **Tier-X manifold-tangent stealth injections** that match clean L2 norms.
-
+#### 2. Reproduce Locally
+* **End-to-End RAG Demo:** `python examples/rag_pipeline_demo.py`
+* **Full-Rank Commercial Audit:** `python examples/commercial_rag_audit.py`
