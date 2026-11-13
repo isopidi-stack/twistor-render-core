@@ -136,3 +136,24 @@ PRs, GPU/XPU/CUDA/MPS benchmarks, and experimental spinor shaders are warmly wel
 * **End-to-End Robot SLAM / Visual Odometry Pipeline:** Chaining solve_camera_position_closed_form with dense $SU(2,2)$ photometric tracking on real camera streams.
 * **Oriented Surface Normals & Splat Primitives:** Extending Hermitian point-cloud incidence residuals to oriented surface elements.
 
+
+## ??? Robot Vision in Action: Direct $\mathbb{CP}^3$ Fusion
+*Real-time spatial tracking and outlier rejection under heavy sensor noise.*
+
+<p align="center">
+  <img src="assets/fpv_hud_frame_1.png" width="700" alt="Twistor-Vision FPV HUD Preview">
+</p>
+
+### ?? Comprehensive Scaling & Stress Benchmarks
+Tested across sparse point-cloud scaling and heavy outlier poisoning:
+
+| Test Regime | Scale / Contamination | Retained Inliers | Execution Latency | Throughput | Position Error |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Point-Cloud Scale Stress** *(40% Outliers)* | 1,000 Points | 607 / 1,000 (60.7%) | 4.916 ms | 203 Hz | 1.215 mm |
+| | 5,000 Points | 2,946 / 5,000 (58.9%) | 4.985 ms | 201 Hz | 0.257 mm |
+| | 10,000 Points | 6,040 / 10,000 (60.4%) | 9.790 ms | 102 Hz | 0.530 mm |
+| | **20,000 Points** | **11,920 / 20,000 (59.6%)** | **23.679 ms** | **42 Hz** | **0.272 mm** |
+| **Outlier Poisoning Stress** *(10,000 Points)* | 20% Contamination | 7,996 / 10,000 (80.0%) | 9.167 ms | 109 Hz | 0.116 mm |
+| | 35% Contamination | 6,537 / 10,000 (65.4%) | 8.865 ms | 113 Hz | 0.290 mm |
+| | 50% Contamination | 5,060 / 10,000 (50.6%) | 7.645 ms | 131 Hz | 0.337 mm |
+| | **60% Contamination** | **4,097 / 10,000 (41.0%)** | **7.721 ms** | **130 Hz** | **0.695 mm** |
