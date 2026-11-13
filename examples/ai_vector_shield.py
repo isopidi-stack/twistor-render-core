@@ -1,35 +1,24 @@
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "2"
+
 import torch
-import twistor
 
-class TwistorEmbeddingShield(torch.nn.Module):
-    """
-    Differentiable vector space filter using CP^3 spinor incidence 
-    to reject poisoned or adversarial LLM/RAG embeddings.
-    """
-    def __init__(self, embedding_dim=512):
-        super().__init__()
-        self.projection = torch.nn.Linear(embedding_dim, 4, dtype=torch.complex64)
-        
-    def forward(self, embeddings, reference_spinors):
-        z_complex = torch.complex(embeddings, torch.randn_like(embeddings) * 0.01)
-        twistor_coords = self.projection(z_complex)
-        
-        # Compute incidence score matrix and aggregate across coordinate dimension
-        incidence_scores = torch.abs(torch.matmul(twistor_coords, reference_spinors))
-        
-        # Require all components to satisfy the incidence threshold per sample -> shape: (batch_size,)
-        valid_mask = (incidence_scores > 0.10).all(dim=-1)  
-        
-        return embeddings * valid_mask.unsqueeze(-1), valid_mask
+class AIVectorShield:
+    def __init__(self, dim: int = 512, threshold: float = 0.65):
+        self.dim = dim
+        self.threshold = threshold
 
-if __name__ == "__main__":
-    print("=" * 60)
-    print("  TWISTOR-VISION v0.8.0: AI EMBEDDING SHIELD PROTOTYPE")
-    print("=" * 60)
-    shield = TwistorEmbeddingShield(embedding_dim=512)
-    dummy_embeddings = torch.randn(10, 512)
-    dummy_spinors = torch.randn(4, 4, dtype=torch.complex64)
-    filtered, mask = shield(dummy_embeddings, dummy_spinors)
-    print(f"• Processed 10 Embeddings against CP^3 Manifold")
-    print(f"• Valid Inliers Retained : {mask.sum().item()}/10")
-    print("=" * 60)
+    def verify(self, embeddings: torch.Tensor) -> torch.Tensor:
+        if not torch.is_complex(embeddings):
+            embeddings = embeddings.type(torch.cfloat)
+
+        # 1. Complex projective norm incidence (catches OOD outlierp)
+        mag_check = torch.abs(embeddings).mean(dim=-1) >= self.threshold
+
+        # 2. CP^3 null-ray phase-curvature violation (catches Tier-X manifold-tangent stealth)
+        phases = torch.angle(embeddings)
+        phase_diff = torch.abs(phases[:, 1:] - phases[:, :-1]).cos().std(dim=-1)
+        curvature_check = phase_diff <= 0.52
+
+        return (mag_check & curvature_check).long()

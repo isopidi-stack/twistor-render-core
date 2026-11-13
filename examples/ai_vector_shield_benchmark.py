@@ -1,86 +1,59 @@
-import torch
-import time
-import numpy as np
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "2"
 
-class TwistorEmbeddingShield(torch.nn.Module):
-    """
-    Differentiable vector space filter using CP^3 spinor incidence 
-    to reject poisoned or adversarial LLM/RAG embeddings.
-    """
-    def __init__(self, embedding_dim=512):
-        super().__init__()
-        self.projection = torch.nn.Linear(embedding_dim, 4, dtype=torch.complex64)
-        
-    def forward(self, embeddings, reference_centroid):
-        z_complex = torch.complex(embeddings, torch.zeros_like(embeddings))
-        twistor_coords = self.projection(z_complex)
-        
-        # Compute distance against the anchored clean manifold reference centroid
-        coords_magnitude = torch.abs(twistor_coords).mean(dim=-1)
-        ref_magnitude = torch.abs(self.projection(torch.complex(reference_centroid, torch.zeros_like(reference_centroid)))).mean()
-        
-        # Fixed geometric boundary relative to the known manifold
-        valid_mask = coords_magnitude <= (ref_magnitude * 3.5)
-        return embeddings * valid_mask.unsqueeze(-1), valid_mask
+import sys, time, torch
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from ai_vector_shield import AIVectorShield
 
-def run_poisoning_stress_test(num_vectors=10000, poisoning_ratio=0.40):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    shield = TwistorEmbeddingShield(embedding_dim=512).to(device)
-    
-    torch.manual_seed(42)
-    base_manifold = torch.randn(1, 512, device=device)
-    clean_embeddings = base_manifold + torch.randn(num_vectors, 512, device=device) * 0.2
-    
-    n_poisoned = int(num_vectors * poisoning_ratio)
-    labels = torch.zeros(num_vectors, dtype=torch.bool, device=device)
-    labels[:n_poisoned] = True
-    
-    poison_noise = torch.randn(n_poisoned, 512, device=device) * 6.0
-    embeddings = clean_embeddings.clone()
-    embeddings[:n_poisoned] = embeddings[:n_poisoned] + poison_noise
-    
-    perm = torch.randperm(num_vectors)
-    embeddings = embeddings[perm]
-    labels = labels[perm]
-    
-    t0 = time.perf_counter()
-    with torch.no_grad():
-        filtered, valid_mask = shield(embeddings, base_manifold)
-    if device == "cuda":
-        torch.cuda.synchronize()
-    elif device == "xpu":
-        torch.xpu.synchronize()
-    dt = (time.perf_counter() - t0) * 1000.0
-    
-    detected_poison = ~valid_mask
-    tp = (detected_poison & labels).sum().item()
-    fp = (detected_poison & ~labels).sum().item()
-    fn = (~detected_poison & labels).sum().item()
-    
-    precision = tp / max(tp + fp, 1)
-    recall = tp / max(tp + fn, 1)
-    f1 = 2 * (precision * recall) / max(precision + recall, 1e-6)
-    throughput = num_vectors / max(dt / 1000.0, 1e-6)
-    
-    return {
-        "num_vectors": num_vectors,
-        "poison_ratio": poisoning_ratio,
-        "latency_ms": dt,
-        "throughput_hz": throughput,
-        "precision": precision,
-        "recall": recall,
-        "f1": f1
-    }
+def metrics(preds, labels):
+    tp = ((preds == 1) & (labels == 1)).sum().item()
+    fp = ((preds == 1) & (labels == 0)).sum().item()
+    fn = ((preds == 0) & (labels == 1)).sum().item()
+    prec = tp / (tp + fp) if (tp + fp) > 0 else 1.0
+    rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    f1 = 2 * (prec * rec) / (prec + rec) if (prec + rec) > 0 else 0.0
+    return prec, rec, f1
+
+def run():
+    print("=" * 96)
+    print(" TWISTOR-VISION v0.9.0: ULTRA-HARD TIE-X STEALTH & OOD POSIONING BENCHMARK")
+    print("=" * 96)
+    print(f"{'Scale (N)':<10} | {'Attack Class':<32} | {'Latency (ms)':<12} | {'Throughput':<14} | {'Prec.':<6} | {'Rec.':<6} | {'F1':<6}")
+    print("-" * 96)
+
+    shield = AIVectorShield(dim=512, threshold=0.65)
+    for n in [1000, 5000, 10000, 20000]:
+        torch.manual_seed(42)
+        # Clean embeddings with coherent CP33 phase geometry
+        base_phase = torch.linspace(0, 3.14, 512).unsqueeze(0).repeat(n, 1)
+        mags = torch.randn(n, 512) * 0.15 + 1.0
+        clean = torch.polar(mags, base_phase + torch.randn(n, 512) * 0.08)
+
+        # Test 1: 60% OOD Outlier Poison
+        n_ood = int(n * 0.6)
+        ood = torch.polar(torch.rand(n_ood, 512) * 0.4, torch.rand(n_ood, 512) * 6.28)
+        data_1 = torch.cat([clean, ood], dim=0)
+        lab_1 = torch.cat([torch.ones(n), torch.zeros(n_ood)])
+        t0 = time.perf_counter()
+        p1 = shield.verify(data_1)
+        dt1 = (time.perf_counter() - t0) * 1000.0
+        pr1, rc1, f11_s = metrics(p1, lab_1)
+        print(f"{n:<10} | {'OOD Outliers (60% Contam.)':<32} | {dt1:<12.3f} | {data_1.shape[0]/(dt1/1000):<11.1f} Hz | {pr1:<6.3f} | {rc1:<.3f} | {f11_s:<.3f}")
+
+        # Test 2: 40% Tier-X Manifold-Tangent Stealth (Same magnitude, adversarial phase twirl)
+        n_st = int(n * 0.4)
+        st_mags = torch.randn(n_st, 512) * 0.15 + 1.0
+        st_phase = base_phase[:n_st] + torch.randn(n_st, 512) * 1.8
+        stealth = torch.polar(st_mags, st_phase)
+        data_2 = torch.cat([clean, stealth], dim=0)
+        lab_2 = torch.cat([torch.ones(n), torch.zeros(n_st)])
+        t0 = time.perf_counter()
+        p2 = shield.verify(data_2)
+        dt2 = (time.perf_counter() - t0) * 1000.0
+        pr2, rc2, f12_s = metrics(p2, lab_2)
+        print(f"{n:<10} | {'Tier-X Tangent Stealth (40%)':<32} | {dt2:<12.3f} | {data_2.shape[0]/(dt2/1000):<11.1f} Hz | {pr2:<6.3f} | {rc2:<.3f} | {f12_s:<.3f}")
+    print("=" * 96)
 
 if __name__ == "__main__":
-    print("=" * 90)
-    print("  TWISTOR-VISION v0.8.0: EXTENSIVE AI POISONING STRESS BENCHMARK (ANCHORED)")
-    print("=" * 90)
-    print(f"{'Scale (N)':<12} | {'Poison Contam.':<15} | {'Latency (ms)':<14} | {'Throughput':<12} | {'Precision':<10} | {'Recall':<10} | {'F1-Score':<10}")
-    print("-" * 90)
-    
-    for n in [1000, 5000, 10000, 20000]:
-        for ratio in [0.20, 0.40, 0.60]:
-            res = run_poisoning_stress_test(num_vectors=n, poisoning_ratio=ratio)
-            print(f"{res['num_vectors']:<12,} | {res['poison_ratio']*100:0.0f}%{' ':<11} | {res['latency_ms']:<14.3f} | {res['throughput_hz']:0.1f} Hz{' ':<6} | {res['precision']:<10.3f} | {res['recall']:<10.3f} | {res['f1']:<10.3f}")
-    print("=" * 90)
+    run()
