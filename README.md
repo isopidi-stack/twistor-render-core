@@ -223,7 +223,7 @@ else:
 ```
 
 #### Why Drop It In?
-* **Ziero Retraining Required:** Works out-of-the-box on top of any existing embedding model without fine-tuning or labeled attack datasets.
+* **Zero Retraining Required:** Works out-of-the-box on top of any existing embedding model without fine-tuning or labeled attack datasets.
 * **Sub-Millisecond Latency:** Adds **< 0.1 ms** per query batch, preserving real-time RAG responsiveness at scale.
 * **Catches Stealth Mimicry:** Blocks both obvious out-of-distribution (OOD) noise and **Tier-X manifold-tangent stealth injections** that match clean L2 norms.
 
