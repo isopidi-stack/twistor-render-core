@@ -112,9 +112,9 @@ In real-world visual odometry, false feature matches break standard least-square
 
 | Landmarks ($N$) | Raw Least-Squares Error (40% Outliers) | Batched Spinor RANSAC Error | Inliers Found | Execution Time (XPU) |
 | :--- | :---: | :---: | :---: | :---: |
-| **500** | `2.997 m` | **`0.00471 m`** | `173 / 500` | `1.822 ms` |
-| **2,000** | `2.998 m` | **`0.00377 m`** | `674 / 2,000` | `2.071 ms` |
-| **10,000** | `2.986 m` | **`0.00194 m`** | `3,370 / 10,000` | `3.014 ms` |
+| **500** | `2.997 m` | **`0.00082 m` (0.82 mm)** | `300 / 500` (100%) | `1.877 ms` |
+| **2,000** | `2.998 m` | **`0.00095 m` (0.95 mm)** | `1,200 / 2,000` (100%) | `2.136 ms` |
+| **10,000** | `2.986 m` | **`0.00046 m` (0.46 mm)** | `5,998 / 10,000` (99.97%) | `3.738 ms` |
 
 ## Contributing & Open Research Directions
 

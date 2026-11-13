@@ -2,8 +2,9 @@
 Batched GPU Spinor RANSAC for Outlier-Robust 3D Camera Localization
 ===================================================================
 Evaluates hundreds of minimal 3-landmark twistor hypotheses in parallel
-on GPU/XPU/CPU, rejecting false feature matches (outliers) before running
-a final least-squares spinor refinement over clean inliers.
+on GPU/XPU/CPU using scale-invariant angular spinor residuals, rejecting
+false feature matches (outliers) before running a final least-squares
+spinor refinement over clean inliers.
 """
 
 import torch
@@ -50,7 +51,7 @@ def solve_camera_position_ransac(
     landmarks_xyz,
     ray_spinors_pi,
     num_hypotheses=512,
-    inlier_threshold=0.015,
+    inlier_threshold=0.008,
 ):
     """
     Outlier-robust 3-DoF camera localization via batched twistor RANSAC.
@@ -59,7 +60,8 @@ def solve_camera_position_ransac(
         landmarks_xyz: [N, 3] float32 world coordinates
         ray_spinors_pi: [N, 2] complex64 world-rotated null ray spinors
         num_hypotheses: Number of parallel 3-point hypotheses (default 512)
-        inlier_threshold: Spinor incidence residual cutoff for inliers
+        inlier_threshold: Scale-invariant angular spinor residual cutoff in radians
+                          (default 0.008 rad ~ 0.45 deg, ~3-sigma for 1.5e-3 UV noise)
 
     Returns:
         refined_pos: [3] float32 camera position refined on all inliers
@@ -78,26 +80,33 @@ def solve_camera_position_ransac(
     idx = torch.randint(0, n_pts, (num_hypotheses, 3), device=device)
 
     # Gather [B, 3, 3] real & imag design blocks and stack into [B, 6, 3]
-    A_sub = torch.cat([A_r[idx], A_i[idx]], dim=1)          # [B, 6, 3]
+    A_sub = torch.cat([A_r[idx], A_i[idx]], dim=1)                # [B, 6, 3]
     b_sub = torch.cat([b_r[idx], b_i[idx]], dim=1).unsqueeze(-1)  # [B, 6, 1]
 
     # 2. Batched 3x3 normal-equation solve across all B hypotheses simultaneously
     eye3 = 1e-7 * torch.eye(3, device=device).unsqueeze(0)
-    ATA = torch.matmul(A_sub.mT, A_sub) + eye3              # [B, 3, 3]
-    ATb = torch.matmul(A_sub.mT, b_sub)                     # [B, 3, 1]
-    candidates = torch.linalg.solve(ATA, ATb).squeeze(-1)   # [B, 3]
+    ATA = torch.matmul(A_sub.mT, A_sub) + eye3                    # [B, 3, 3]
+    ATb = torch.matmul(A_sub.mT, b_sub)                           # [B, 3, 1]
+    candidates = torch.linalg.solve(ATA, ATb).squeeze(-1)         # [B, 3]
 
-    # 3. Vectorized spinor incidence residual across [B, N]
-    # res_r = A_r @ C^T - b_r, res_i = A_i @ C^T - b_i
-    res_r = torch.matmul(candidates, A_r.mT) - b_r.unsqueeze(0)  # [B, N]
-    res_i = torch.matmul(candidates, A_i.mT) - b_i.unsqueeze(0)  # [B, N]
-    residuals = torch.sqrt(res_r * res_r + res_i * res_i)        # [B, N]
+    # 3. Scale-invariant angular spinor residual across [B, N]
+    # Normalize raw spinor incidence residual by sqrt(2) * ||X_i - C_b||
+    res_r = torch.matmul(candidates, A_r.mT) - b_r.unsqueeze(0)   # [B, N]
+    res_i = torch.matmul(candidates, A_i.mT) - b_i.unsqueeze(0)   # [B, N]
+    raw_res = torch.sqrt(res_r * res_r + res_i * res_i)           # [B, N]
 
-    inlier_counts = (residuals < inlier_threshold).sum(dim=-1)   # [B]
+    # Depth normalization: ||X_i - C_b|| = sqrt(||X||^2 + ||C||^2 - 2 C.X)
+    x_norm_sq = (landmarks_xyz * landmarks_xyz).sum(dim=-1).unsqueeze(0)  # [1, N]
+    c_norm_sq = (candidates * candidates).sum(dim=-1).unsqueeze(1)        # [B, 1]
+    dist = torch.sqrt(
+        torch.clamp(x_norm_sq + c_norm_sq - 2.0 * torch.matmul(candidates, landmarks_xyz.mT), min=1e-6)
+    )
+    angular_residuals = raw_res / (1.41421356 * dist)             # [B, N] in radians
+
+    inlier_counts = (angular_residuals < inlier_threshold).sum(dim=-1)  # [B]
     best_b = torch.argmax(inlier_counts)
-    inlier_mask = residuals[best_b] < inlier_threshold
+    inlier_mask = angular_residuals[best_b] < inlier_threshold
 
-    # Fallback if too few inliers found
     if inlier_mask.sum() < 3:
         pos = solve_camera_position_closed_form(landmarks_xyz, ray_spinors_pi)
         return pos, torch.ones(n_pts, dtype=torch.bool, device=device)

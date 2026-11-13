@@ -76,7 +76,7 @@ def run_ransac_benchmark():
         t0 = time.perf_counter()
         for _ in range(30):
             pos_ransac, inliers = solve_camera_position_ransac(
-                landmarks, pi_world, num_hypotheses=512, inlier_threshold=0.015
+                landmarks, pi_world, num_hypotheses=512, inlier_threshold=0.008
             )
         sync_device(device)
         dt_ms = ((time.perf_counter() - t0) / 30.0) * 1000.0
@@ -93,3 +93,4 @@ def run_ransac_benchmark():
 
 if __name__ == "__main__":
     run_ransac_benchmark()
+
