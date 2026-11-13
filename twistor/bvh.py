@@ -102,8 +102,10 @@ def cull_and_render_clustered(
     # Transpose pi_spinor to [2, R] for direct GEMM: [B, 2, 2] x [2, R] -> [B, 2, R]
     pi_t = pi_spinor.mT.contiguous()  # [2, R] complex64
 
+    R_A_dag = R_A.conj().mT
     for batch_pts in torch.split(visible_pts, super_batch_size, dim=0):
-        X_complex = points_to_complex_hermitian(batch_pts)  # [B, 2, 2]
+        X_world = points_to_complex_hermitian(batch_pts)    # [B, 2, 2]
+        X_complex = torch.matmul(R_A, torch.matmul(X_world, R_A_dag))
 
         # 2D/3D GEMM avoids SYCL 4D broadcast range overflow on Level Zero
         # [B, 2, 2] @ [2, R] -> [B, 2, R]
@@ -112,7 +114,9 @@ def cull_and_render_clustered(
 
         diff = omega_spinor.unsqueeze(1) - pred_omega       # [R, B, 2]
 
-        sq_residual = torch.sum(torch.abs(diff) ** 2, dim=-1) # [R, B]
+        total_sq = torch.sum(torch.abs(diff) ** 2, dim=-1)  # [R, B]
+        longitudinal = torch.sum(pi_spinor.conj().unsqueeze(1) * diff, dim=-1)
+        sq_residual = torch.relu(total_sq - (torch.abs(longitudinal) ** 2))
         batch_min_sq_res, _ = torch.min(sq_residual, dim=-1)
 
         global_min_sq_res = torch.minimum(global_min_sq_res, batch_min_sq_res)
