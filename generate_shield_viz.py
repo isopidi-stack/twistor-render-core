@@ -35,7 +35,7 @@ def generate_manifold_visualization():
     xx, yy = np.meshgrid(np.linspace(-3.5, 3.5, 10), np.linspace(-3.5, 3.5, 10))
     ax.plot_surface(xx, yy, np.zeros_like(xx) + 0.4, color='magenta', alpha=0.1, edgecolor='none')
 
-    ax.set_title(r"Twistor-Vision Core: $\\mathbb{CP}^3$ Tier-X Manifold Shield", fontsize=14, color='white', pad=20, fontweight='bold')
+    ax.set_title(r"Twistor-Vision Core: $\mathbb{CP}^3$ Tier-X Manifold Shield", fontsize=14, color='white', pad=20, fontweight='bold')
     ax.axis('off')
     ax.view_init(elev=30, azim=45)
     leg = ax.legend(loc='upper left', frameon=True, facecolor='#111111', edgecolor='#333333')
