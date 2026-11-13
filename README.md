@@ -116,6 +116,19 @@ In real-world visual odometry, false feature matches break standard least-square
 | **2,000** | `2.998 m` | **`0.00095 m` (0.95 mm)** | `1,200 / 2,000` (100%) | `2.136 ms` |
 | **10,000** | `2.986 m` | **`0.00046 m` (0.46 mm)** | `5,998 / 10,000` (99.97%) | `3.738 ms` |
 
+
+
+### Real-World Drone Flight Validation: 600-Frame 3D MAV Trajectory (`examples/euroc_drone_benchmark.py`)
+
+Evaluated end-to-end across a 30-second (600-frame) 3D Micro Aerial Vehicle (MAV) trajectory with full 3D roll/pitch/yaw IMU quaternion-to-$SU(2)$ spinor mapping, continuous pixel sensor noise, and **35% corrupted false feature matches**:
+
+| Telemetry Regime (35% Outliers + Pixel Noise) | ATE RMSE | Max Error | Inlier Recall | Mean Latency (XPU) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Tactical / Optical-Grade Attitude** | **`0.88 mm`** | `2.24 mm` | **`100.0%` (`65.0% / 65.0%`)** | **`2.95 ms` / frame (`340 Hz`)** |
+| **MEMS IMU + `0.15°` Attitude Jitter** | **`17.70 mm`** | `52.34 mm` | **`100.0%` (`65.0% / 65.0%`)** | **`2.62 ms` / frame (`382 Hz`)** |
+
+![EuRoC Drone Trajectory](assets/euroc_drone_trajectory.png)
+
 ## Contributing & Open Research Directions
 
 PRs, GPU/XPU/CUDA/MPS benchmarks, and experimental spinor shaders are warmly welcomed! Good starting areas if you fork the repo:
