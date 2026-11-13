@@ -9,3 +9,7 @@ Figure_*.png
 Figure_*.gif
 *.py.py
 
+
+# Local video captures
+*.mp4
+
