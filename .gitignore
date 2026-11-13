@@ -3,3 +3,9 @@ __pycache__/
 venv/
 .vscode/
 
+
+# Local render scratch files
+Figure_*.png
+Figure_*.gif
+*.py.py
+
