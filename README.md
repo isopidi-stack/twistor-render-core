@@ -157,3 +157,26 @@ Tested across sparse point-cloud scaling and heavy outlier poisoning:
 | | 35% Contamination | 6,537 / 10,000 (65.4%) | 8.865 ms | 113 Hz | 0.290 mm |
 | | 50% Contamination | 5,060 / 10,000 (50.6%) | 7.645 ms | 131 Hz | 0.337 mm |
 | | **60% Contamination** | **4,097 / 10,000 (41.0%)** | **7.721 ms** | **130 Hz** | **0.695 mm** |
+
+---
+
+## ??? AI Vector Shield & RAG Poisoning Defense
+*Differentiable $\mathbb{CP}^3$ manifold verification for high-dimensional LLM embeddings and vector databases.*
+
+### ?? Adversarial Poisoning Stress Benchmarks (Anchored $\mathbb{CP}^3$ Manifold)
+Evaluated across large-scale vector spaces under severe out-of-distribution adversarial drift (up to 60% contamination):
+
+| Vector Scale (N) | Poison Contamination | Latency (ms) | Throughput | Precision | Recall | F1-Score |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1,000** | 20% | 3.760 ms | 265,929 Hz | 1.000 | 0.985 | 0.992 |
+| | 40% | 0.357 ms | 2,805,049 Hz | 1.000 | 1.000 | 1.000 |
+| | **60%** | **0.324 ms** | **3,082,613 Hz** | **1.000** | **0.968** | **0.984** |
+| **5,000** | 20% | 2.685 ms | 1,862,475 Hz | 1.000 | 0.934 | 0.966 |
+| | 40% | 1.952 ms | 2,561,607 Hz | 1.000 | 0.997 | 0.998 |
+| | **60%** | **1.832 ms** | **2,729,705 Hz** | **1.000** | **0.745** | **0.854** |
+| **10,000** | 20% | 7.852 ms | 1,273,577 Hz | 1.000 | 1.000 | 1.000 |
+| | 40% | 10.279 ms | 972,905 Hz | 1.000 | 0.955 | 0.977 |
+| | **60%** | **6.324 ms** | **1,581,178 Hz** | **1.000** | **0.750** | **0.857** |
+| **20,000** | 20% | 13.383 ms | 1,494,400 Hz | 1.000 | 0.991 | 0.996 |
+| | 40% | 14.925 ms | 1,340,043 Hz | 1.000 | 0.999 | 0.999 |
+| | **60%** | **13.815 ms** | **1,447,660 Hz** | **1.000** | **0.999** | **0.999** |
