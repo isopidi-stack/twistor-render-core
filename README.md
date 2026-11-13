@@ -1,4 +1,4 @@
-﻿# twistor-render-core
+# twistor-render-core
 
 Experimental differentiable 3D rendering engine built on Roger Penrose's Twistor Theory ($\mathbb{CP}^3$) and complex 2-spinors using PyTorch & Intel XPU.
 
@@ -104,6 +104,17 @@ Because Sir Roger Penrose's twistor geometry maps light rays to points in projec
   <img src="assets/kidnapped_robot_snap.png" alt="Kidnapped Robot One-Shot Twistor Localization" width="48%" />
   <img src="assets/su22_robot_calibration.gif" alt="Full SU(2,2) Conformal Robot Self-Calibration" width="48%" />
 </p>
+
+
+### Outlier-Robust Localization: Batched Spinor RANSAC (40% Outliers + Sensor Noise)
+
+In real-world visual odometry, false feature matches break standard least-squares solvers. `twistor/ransac.py` evaluates **512 minimal 3-landmark spinor hypotheses in parallel** on GPU/XPU before refining on clean inliers (`python -m examples.benchmark_ransac`):
+
+| Landmarks ($N$) | Raw Least-Squares Error (40% Outliers) | Batched Spinor RANSAC Error | Inliers Found | Execution Time (XPU) |
+| :--- | :---: | :---: | :---: | :---: |
+| **500** | `2.997 m` | **`0.00471 m`** | `173 / 500` | `1.822 ms` |
+| **2,000** | `2.998 m` | **`0.00377 m`** | `674 / 2,000` | `2.071 ms` |
+| **10,000** | `2.986 m` | **`0.00194 m`** | `3,370 / 10,000` | `3.014 ms` |
 
 ## Contributing & Open Research Directions
 
