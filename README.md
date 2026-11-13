@@ -1,7 +1,7 @@
-﻿# twistor-render-core
+# twistor-render-core
 
 [![CI](https://github.com/isopidi-stack/twistor-render-core/actions/workflows/ci.yml/badge.svg)](https://github.com/isopidi-stack/twistor-render-core/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/isopidi-stack/twistor-render-core?color=blue)](https://github.com/isopidi-stack/twistor-render-core/releases)
+[![Release](https://img.shields.io/github/v/tag/isopidi-stack/twistor-render-core?color=blue)](https://github.com/isopidi-stack/twistor-render-core/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 
