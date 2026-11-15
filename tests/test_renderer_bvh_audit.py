@@ -70,7 +70,6 @@ class TestRendererAndBVHRemediation(unittest.TestCase):
         and prunes >75% of ray-point evaluations via Kay-Kajiya slab intersection tests.
         """
         torch.manual_seed(55)
-        # 2 clusters directly inside the camera frustum + 6 clusters outside the frustum
         cluster_centers = torch.tensor([
             [ 0.0,  0.0, 10.0], [ 1.2, -0.8,  9.0], [-12.0,  12.0, 10.0], [12.0,  12.0, 10.0],
             [-15.0, 0.0, -12.0], [15.0, 0.0, -12.0], [  0.0,  18.0, -8.0], [ 0.0, -18.0, -8.0]
@@ -92,6 +91,43 @@ class TestRendererAndBVHRemediation(unittest.TestCase):
         self.assertGreater(peak_intensity, 0.05, "In-frustum clusters at z=10 (1/(1+z^2) ~ 0.01/pt) must produce non-zero rendered intensity!")
         self.assertGreater(pruned_pct, 75.0, "BVH must prune at least 75% of ray-point evaluations!")
         self.assertLess(max_img_diff, 1e-6)
+
+    def test_5_conformal_camera_ray_action_omega_zero_vs_nonzero(self):
+        """
+        Explicitly tests the algebraic properties of generate_camera_rays under SU(2,2) subgroups:
+          1. When omega = 0 (camera_center=None, trans_4d=0), D(lambda) and K(b) act via projective
+             rescaling pi' = e^{-lambda/2} pi on CP^1, leaving unit rays n unchanged (diff == 0).
+          2. When omega != 0 (via camera_center != 0 or trans_4d != 0), P(I, T) shifts omega^A = i T^{AA'} pi_{A'},
+             so subsequent K(b) (pi' = e^{-lambda/2} pi - i e^{lambda/2} B omega) and D(lambda) both
+             induce non-trivial projective ray deformations on CP^1.
+        """
+        renderer = TwistorRenderer(width=8, height=8, fov_deg=60.0)
+        b_4d = torch.tensor([0.15, -0.35, 0.25, -0.20], dtype=torch.float64)
+        trans_4d = torch.tensor([1.0, 2.5, -1.5, 0.8], dtype=torch.float64)
+        cam_nonzero = torch.tensor([1.2, -0.9, 2.0], dtype=torch.float64)
+
+        # Case 1: omega = 0 (origin light cone) -> K(b) and D(lambda) are projective no-ops on CP^1
+        _, dirs_id = renderer.generate_camera_rays()
+        _, dirs_origin_kd = renderer.generate_camera_rays(special_conformal_4d=b_4d, dilation_lambda=0.6)
+        origin_noop_diff = torch.max(torch.abs(dirs_origin_kd - dirs_id)).item()
+
+        # Case 2: omega != 0 via camera_center != 0 and K(b) != 0 -> non-trivial ray warp
+        _, dirs_cam_k = renderer.generate_camera_rays(special_conformal_4d=b_4d, camera_center=cam_nonzero)
+        cam_k_shift = torch.max(torch.abs(dirs_cam_k - dirs_id)).item()
+
+        # Case 3: omega != 0 via spacetime translation T != 0 followed by K(b) -> non-trivial ray warp
+        _, dirs_trans_k = renderer.generate_camera_rays(trans_4d=trans_4d, special_conformal_4d=b_4d)
+        trans_k_shift = torch.max(torch.abs(dirs_trans_k - dirs_id)).item()
+
+        # Case 4: Dilation D(lambda) coupled with K(b) at omega != 0 changes the relative weight e^{lambda} B omega
+        _, dirs_cam_kd = renderer.generate_camera_rays(special_conformal_4d=b_4d, dilation_lambda=0.7, camera_center=cam_nonzero)
+        dilation_k_shift = torch.max(torch.abs(dirs_cam_kd - dirs_cam_k)).item()
+
+        print(f"  -> [RENDERER AUDIT 5] Origin omega=0 No-Op Diff: {origin_noop_diff:.2e} | Active K(b)+Cam Shift: {cam_k_shift:.4f} | Active K(b)+Trans Shift: {trans_k_shift:.4f} | Active D(lambda)+K(b) Shift: {dilation_k_shift:.4f}")
+        self.assertLess(origin_noop_diff, 1e-15)
+        self.assertGreater(cam_k_shift, 0.05)
+        self.assertGreater(trans_k_shift, 0.05)
+        self.assertGreater(dilation_k_shift, 0.05)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
