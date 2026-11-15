@@ -75,10 +75,10 @@ class PenroseTwistorCore:
         return torch.cat([omega, pi], dim=-1)
 
     @staticmethod
-    def penrose_contour_transform_scalar(x4: torch.Tensor, x0_pole: torch.Tensor = None, num_contour_pts: int = 256) -> torch.Tensor:
+    def penrose_contour_transform_scalar(x4: torch.Tensor, x0_origin_shift: torch.Tensor = None, num_contour_pts: int = 256) -> torch.Tensor:
         """
         Delegates to TwistorCohomologyEngine.contour_integral_transform, which enforces
         strict pole separation |zeta_A(x)| < 1 < |zeta_B(x)| so phi(x) is genuinely non-zero.
         """
-        dx = x4 - x0_pole if x0_pole is not None else x4
+        dx = x4 - x0_origin_shift if x0_origin_shift is not None else x4
         return TwistorCohomologyEngine.contour_integral_transform(dx, num_pts=num_contour_pts)
