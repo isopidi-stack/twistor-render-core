@@ -23,7 +23,12 @@ def sl2c_from_lie_algebra(axis_angle: torch.Tensor, boost_rapidity: torch.Tensor
 
     M = torch.stack([torch.stack([m00, m01], dim=-1),
                      torch.stack([m10, m11], dim=-1)], dim=-2)
-    return torch.linalg.matrix_exp(M)
+    omega_sq = -0.25 * (cx**2 + cy**2 + cz**2)
+    omega = torch.sqrt(omega_sq + 1e-18j)
+    cosh_w = torch.cosh(omega)
+    sinh_over_w = torch.where(torch.abs(omega) > 1e-7, torch.sinh(omega) / omega, torch.ones_like(omega))
+    eye = torch.eye(2, dtype=M.dtype, device=M.device).expand_as(M)
+    return cosh_w.unsqueeze(-1).unsqueeze(-1) * eye + sinh_over_w.unsqueeze(-1).unsqueeze(-1) * M
 
 def rotate_spinor(U: torch.Tensor, X: torch.Tensor, pi: torch.Tensor):
     """
