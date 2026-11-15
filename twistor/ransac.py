@@ -1,118 +1,84 @@
-"""
-Batched GPU Spinor RANSAC for Outlier-Robust 3D Camera Localization
-===================================================================
-Evaluates hundreds of minimal 3-landmark twistor hypotheses in parallel
-on GPU/XPU/CPU using scale-invariant angular spinor residuals, rejecting
-false feature matches (outliers) before running a final least-squares
-spinor refinement over clean inliers.
-"""
-
 import torch
-from twistor.localization import solve_camera_position_closed_form
-
-
-def _build_spinor_linear_rows(landmarks_xyz, ray_spinors_pi):
-    """
-    Constructs real/imaginary twistor incidence linear rows A_r, A_i [N, 3]
-    and RHS vectors b_r, b_i [N] from 3D landmarks and world null spinors.
-    """
-    a0 = ray_spinors_pi[:, 0].real
-    b0 = ray_spinors_pi[:, 0].imag
-    a1 = ray_spinors_pi[:, 1].real
-    b1 = ray_spinors_pi[:, 1].imag
-
-    re_p0_sq = a0 * a0 - b0 * b0
-    im_p0_sq = 2.0 * a0 * b0
-    re_p1_sq = a1 * a1 - b1 * b1
-    im_p1_sq = 2.0 * a1 * b1
-    re_p0_p1 = a0 * a1 - b0 * b1
-    im_p0_p1 = a0 * b1 + b0 * a1
-
-    r_cx = re_p0_sq - re_p1_sq
-    r_cy = -(im_p0_sq + im_p1_sq)
-    r_cz = -2.0 * re_p0_p1
-
-    i_cx = im_p0_sq - im_p1_sq
-    i_cy = re_p0_sq + re_p1_sq
-    i_cz = -2.0 * im_p0_p1
-
-    x = landmarks_xyz[:, 0]
-    y = landmarks_xyz[:, 1]
-    z = landmarks_xyz[:, 2]
-
-    A_r = torch.stack([r_cx, r_cy, r_cz], dim=-1)  # [N, 3]
-    A_i = torch.stack([i_cx, i_cy, i_cz], dim=-1)  # [N, 3]
-    b_r = r_cx * x + r_cy * y + r_cz * z           # [N]
-    b_i = i_cx * x + i_cy * y + i_cz * z           # [N]
-    return A_r, A_i, b_r, b_i
-
+from twistor.localization import spinor_to_transverse_basis, solve_camera_position_spinor, verify_cheirality
 
 def solve_camera_position_ransac(
-    landmarks_xyz,
-    ray_spinors_pi,
-    num_hypotheses=512,
-    inlier_threshold=0.008,
+    pi_world: torch.Tensor,
+    landmarks: torch.Tensor,
+    num_hypotheses: int = 256,
+    angle_threshold_rad: float = 0.008,
+    min_inliers: int = 3,
+    sample_size: int = 3,
+    cond_threshold: float = 1e4
 ):
     """
-    Outlier-robust 3-DoF camera localization via batched twistor RANSAC.
-
-    Args:
-        landmarks_xyz: [N, 3] float32 world coordinates
-        ray_spinors_pi: [N, 2] complex64 world-rotated null ray spinors
-        num_hypotheses: Number of parallel 3-point hypotheses (default 512)
-        inlier_threshold: Scale-invariant angular spinor residual cutoff in radians
-                          (default 0.008 rad ~ 0.45 deg, ~3-sigma for 1.5e-3 UV noise)
-
-    Returns:
-        refined_pos: [3] float32 camera position refined on all inliers
-        inlier_mask: [N] bool tensor of detected inliers
+    Robust spinor camera localization with:
+      1. Sampling without replacement (distinct landmarks per hypothesis)
+      2. Exact angular residual: theta_i = arcsin(clamp(e_i / d_i, 0, 1)) (no erroneous sqrt(2) factor)
+      3. SVD singular-value conditioning gate + positive-depth cheirality gate
+      4. Explicit status reporting ('robust_success' vs 'failed')
     """
-    n_pts = landmarks_xyz.shape[0]
-    device = landmarks_xyz.device
+    device = landmarks.device
+    n_pts = landmarks.shape[0]
+    if n_pts < sample_size:
+        raise ValueError(f"Requires at least {sample_size} landmarks, got {n_pts}.")
 
-    if n_pts <= 4:
-        pos = solve_camera_position_closed_form(landmarks_xyz, ray_spinors_pi)
-        return pos, torch.ones(n_pts, dtype=torch.bool, device=device)
+    a, b, n = spinor_to_transverse_basis(pi_world)
 
-    A_r, A_i, b_r, b_i = _build_spinor_linear_rows(landmarks_xyz, ray_spinors_pi)
+    # 1. Sample distinct indices per hypothesis without replacement
+    rand_scores = torch.rand((num_hypotheses, n_pts), device=device)
+    idx = torch.topk(rand_scores, k=sample_size, dim=-1).indices  # (H, sample_size)
 
-    # 1. Sample [B, 3] random landmark indices in parallel
-    idx = torch.randint(0, n_pts, (num_hypotheses, 3), device=device)
+    a_sub = a[idx]          # (H, S, 3)
+    b_sub = b[idx]          # (H, S, 3)
+    X_sub = landmarks[idx]  # (H, S, 3)
 
-    # Gather [B, 3, 3] real & imag design blocks and stack into [B, 6, 3]
-    A_sub = torch.cat([A_r[idx], A_i[idx]], dim=1)                # [B, 6, 3]
-    b_sub = torch.cat([b_r[idx], b_i[idx]], dim=1).unsqueeze(-1)  # [B, 6, 1]
+    A_sub = torch.cat([a_sub, b_sub], dim=1)  # (H, 2*S, 3)
+    d_sub = torch.cat([
+        torch.sum(a_sub * X_sub, dim=-1),
+        torch.sum(b_sub * X_sub, dim=-1)
+    ], dim=1)  # (H, 2*S)
 
-    # 2. Batched 3x3 normal-equation solve across all B hypotheses simultaneously
-    eye3 = 1e-7 * torch.eye(3, device=device).unsqueeze(0)
-    ATA = torch.matmul(A_sub.mT, A_sub) + eye3                    # [B, 3, 3]
-    ATb = torch.matmul(A_sub.mT, b_sub)                           # [B, 3, 1]
-    candidates = torch.linalg.solve(ATA, ATb).squeeze(-1)         # [B, 3]
+    # 2. Check conditioning via singular values and reject degenerate hypotheses
+    _, S_vals, _ = torch.linalg.svd(A_sub, full_matrices=False)
+    valid_cond = (S_vals[:, -1] > 1e-5) & ((S_vals[:, 0] / torch.clamp(S_vals[:, -1], min=1e-12)) < cond_threshold)
 
-    # 3. Scale-invariant angular spinor residual across [B, N]
-    # Normalize raw spinor incidence residual by sqrt(2) * ||X_i - C_b||
-    res_r = torch.matmul(candidates, A_r.mT) - b_r.unsqueeze(0)   # [B, N]
-    res_i = torch.matmul(candidates, A_i.mT) - b_i.unsqueeze(0)   # [B, N]
-    raw_res = torch.sqrt(res_r * res_r + res_i * res_i)           # [B, N]
+    # Solve all hypotheses in parallel
+    C_hyps = torch.linalg.lstsq(A_sub, d_sub.unsqueeze(-1)).solution.squeeze(-1)  # (H, 3)
 
-    # Depth normalization: ||X_i - C_b|| = sqrt(||X||^2 + ||C||^2 - 2 C.X)
-    x_norm_sq = (landmarks_xyz * landmarks_xyz).sum(dim=-1).unsqueeze(0)  # [1, N]
-    c_norm_sq = (candidates * candidates).sum(dim=-1).unsqueeze(1)        # [B, 1]
-    dist = torch.sqrt(
-        torch.clamp(x_norm_sq + c_norm_sq - 2.0 * torch.matmul(candidates, landmarks_xyz.mT), min=1e-6)
-    )
-    angular_residuals = raw_res / (1.41421356 * dist)             # [B, N] in radians
+    # 3. Compute exact perpendicular distance e_i and exact angular error theta_i = arcsin(clamp(e_i / d_i, 0, 1))
+    disp = landmarks.unsqueeze(0) - C_hyps.unsqueeze(1)  # (H, N, 3)
+    proj_a = torch.sum(a.unsqueeze(0) * disp, dim=-1)
+    proj_b = torch.sum(b.unsqueeze(0) * disp, dim=-1)
+    e_i = torch.sqrt(proj_a**2 + proj_b**2)              # (H, N)
+    d_i = torch.norm(disp, dim=-1)                       # (H, N)
 
-    inlier_counts = (angular_residuals < inlier_threshold).sum(dim=-1)  # [B]
-    best_b = torch.argmax(inlier_counts)
-    inlier_mask = angular_residuals[best_b] < inlier_threshold
+    # Enforce positive depth (cheirality: landmark in front of camera) and minimum distance > 1e-4
+    depths = torch.sum(disp * n.unsqueeze(0), dim=-1)
+    valid_geom = (depths > 0.0) & (d_i > 1e-4)
 
-    if inlier_mask.sum() < 3:
-        pos = solve_camera_position_closed_form(landmarks_xyz, ray_spinors_pi)
-        return pos, torch.ones(n_pts, dtype=torch.bool, device=device)
+    sin_theta = torch.clamp(e_i / torch.clamp(d_i, min=1e-12), 0.0, 1.0)
+    theta_rad = torch.asin(sin_theta)
 
-    # 4. Final closed-form least-squares refinement on all clean inliers
-    refined_pos = solve_camera_position_closed_form(
-        landmarks_xyz[inlier_mask], ray_spinors_pi[inlier_mask]
-    )
-    return refined_pos, inlier_mask
+    inlier_matrix = (theta_rad < angle_threshold_rad) & valid_geom & valid_cond.unsqueeze(1)
+    inlier_counts = torch.sum(inlier_matrix, dim=-1)
+
+    best_count, best_idx = torch.max(inlier_counts, dim=0)
+    best_inliers = inlier_matrix[best_idx]
+
+    if int(best_count.item()) < min_inliers:
+        return {
+            "status": "failed",
+            "position": None,
+            "inliers": torch.zeros(n_pts, dtype=torch.bool, device=device),
+            "num_inliers": int(best_count.item())
+        }
+
+    # Polish on best inlier set
+    polished = solve_camera_position_spinor(pi_world[best_inliers], landmarks[best_inliers], cond_threshold=cond_threshold)
+    return {
+        "status": "robust_success" if polished["is_valid"] else "degenerate_inlier_set",
+        "position": polished["position"],
+        "inliers": best_inliers,
+        "num_inliers": int(best_count.item()),
+        "condition_number": polished["condition_number"]
+    }

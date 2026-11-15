@@ -1,98 +1,46 @@
-"""
-Twistor Incidence Engine - Phase 2 Collision Kernels
-===================================================
-Evaluates Penrose's incidence relation omega^A = i * X^{AA'} * pi_{A'}
-for batched point clouds, line intersections, and complex spinor collision detection.
-"""
-
-from typing import Tuple
 import torch
 
+EPSILON = torch.tensor([[0.0, 1.0], [-1.0, 0.0]], dtype=torch.complex64)
 
-def compute_incidence_residual(
-    hermitian_points: torch.Tensor,
-    omega: torch.Tensor,
-    pi: torch.Tensor
-) -> torch.Tensor:
+def sl2c_from_lie_algebra(axis_angle: torch.Tensor, boost_rapidity: torch.Tensor = None) -> torch.Tensor:
     """
-    Computes the Penrose incidence relation residual for a batch of points X^{AA'}
-    against a light ray specified by twistor components (omega^A, pi_{A'}).
-
-    Penrose Incidence Relation:
-        omega^A = i * X^{AA'} * pi_{A'}
-
-    Args:
-        hermitian_points: Tensor of shape (N, 2, 2), complex64 (2x2 Hermitian points)
-        omega: Primary position spinor of shape (2, 1) or (N, 2, 1), complex64
-        pi: Momentum/direction spinor of shape (2, 1) or (N, 2, 1), complex64
-
-    Returns:
-        Tensor of shape (N,) with float32 residual values (0.0 means exact incidence).
+    Constructs U in SL(2,C) (or SU(2) when boost_rapidity is None) directly via the 
+    Lie algebra exponential map exp(-i/2 * theta_k * sigma_k - 1/2 * eta_k * sigma_k),
+    bypassing Euler angle charts and gimbal singularities.
     """
-    device = hermitian_points.device
-    i_unit = torch.complex(torch.tensor(0.0, device=device), torch.tensor(1.0, device=device))
+    wx, wy, wz = axis_angle[..., 0], axis_angle[..., 1], axis_angle[..., 2]
+    if boost_rapidity is not None:
+        ex, ey, ez = boost_rapidity[..., 0], boost_rapidity[..., 1], boost_rapidity[..., 2]
+        cx, cy, cz = torch.complex(wx, -ex), torch.complex(wy, -ey), torch.complex(wz, -ez)
+    else:
+        z = torch.zeros_like(wx)
+        cx, cy, cz = torch.complex(wx, z), torch.complex(wy, z), torch.complex(wz, z)
 
-    if omega.dim() == 2:
-        omega = omega.unsqueeze(0)  # Shape (1, 2, 1)
-    if pi.dim() == 2:
-        pi = pi.unsqueeze(0)        # Shape (1, 2, 1)
+    m00 = -0.5j * cz
+    m01 = -0.5j * (cx - 1j * cy)
+    m10 = -0.5j * (cx + 1j * cy)
+    m11 =  0.5j * cz
 
-    omega_pred = i_unit * torch.matmul(hermitian_points, pi)
-    diff = omega - omega_pred
-    residual = torch.norm(diff, dim=(1, 2)).real
+    M = torch.stack([torch.stack([m00, m01], dim=-1),
+                     torch.stack([m10, m11], dim=-1)], dim=-2)
+    return torch.linalg.matrix_exp(M)
 
-    return residual
-
-
-def check_point_cloud_incidence(
-    hermitian_points: torch.Tensor,
-    omega: torch.Tensor,
-    pi: torch.Tensor,
-    threshold: float = 0.01
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def rotate_spinor(U: torch.Tensor, X: torch.Tensor, pi: torch.Tensor):
     """
-    Determines which points in a point cloud lie on or near the given light ray.
-
-    Args:
-        hermitian_points: Tensor of shape (N, 2, 2), complex64
-        omega: Position spinor of the ray (2, 1), complex64
-        pi: Direction spinor of the ray (2, 1), complex64
-        threshold: Maximum incidence residual tolerance
-
-    Returns:
-        Tuple of (hit_mask [Tensor of bool], residuals [Tensor of float32])
+    Coordinate-free SL(2,C) / SU(2) transformation on Hermitian null-cones and spinors:
+      X'^{AA'} = U^A_B X^{BB'} (U^dagger)_{B'}^{A'}
+      pi'_{A'} = (U^*)_{A'}^{B'} pi_{B'}
+      omega'^A = i X'^{AA'} pi'_{A'}
     """
-    residuals = compute_incidence_residual(hermitian_points, omega, pi)
-    hits = residuals < threshold
-    return hits, residuals
+    U_dag = torch.conj(U.mT)
+    X_rot = torch.einsum("...ab,...bc,...cd->...ad", U, X, U_dag)
+    pi_rot = torch.einsum("...ab,...b->...a", torch.conj(U), pi)
+    omega_rot = 1j * torch.einsum("...ab,...b->...a", X_rot, pi_rot)
+    return X_rot, omega_rot, pi_rot
 
-
-def ray_triangle_incidence_check(
-    triangle_vertices_hermitian: torch.Tensor,
-    omega: torch.Tensor,
-    pi: torch.Tensor,
-    threshold: float = 0.01
-) -> torch.Tensor:
+def epsilon_inner_product(xi: torch.Tensor, eta: torch.Tensor) -> torch.Tensor:
     """
-    Evaluates whether a ray intersects a batch of triangles represented by their
-    three vertex Hermitian matrices.
-
-    Args:
-        triangle_vertices_hermitian: Tensor of shape (M, 3, 2, 2), complex64
-        omega: Position spinor of the ray (2, 1), complex64
-        pi: Direction spinor of the ray (2, 1), complex64
-        threshold: Intersection residual threshold
-
-    Returns:
-        Tensor of shape (M,) boolean hits for triangle intersections.
+    SL(2,C)-invariant symplectic spinor contraction: [xi, eta] = epsilon_{AB} xi^A eta^B
     """
-    v0 = triangle_vertices_hermitian[:, 0]
-    v1 = triangle_vertices_hermitian[:, 1]
-    v2 = triangle_vertices_hermitian[:, 2]
-
-    res0 = compute_incidence_residual(v0, omega, pi)
-    res1 = compute_incidence_residual(v1, omega, pi)
-    res2 = compute_incidence_residual(v2, omega, pi)
-
-    mean_res = (res0 + res1 + res2) / 3.0
-    return mean_res < threshold
+    eps = EPSILON.to(dtype=xi.dtype, device=xi.device)
+    return torch.einsum("...a,ab,...b->...", xi, eps, eta)

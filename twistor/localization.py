@@ -1,80 +1,90 @@
-"""
-Closed-Form Projective Twistor 3D Localization
-==============================================
-Fused float32 spinor incidence solver for 3-DoF camera position recovery
-given known IMU orientation (SU(2)).
-"""
-
 import torch
-from twistor.renderer import generate_su22_camera_matrix, points_to_complex_hermitian
 
-
-def pixel_uv_to_world_spinor(u, v, R_A):
-    """
-    Maps stereographic image coordinates (u, v) to camera null ray spinors
-    and rotates them into the world frame via inverse SU(2) spinor conjugation.
-    """
-    pi_cam = torch.stack([
-        torch.ones_like(u, dtype=torch.complex64),
-        torch.complex(u, v).to(torch.complex64),
-    ], dim=-1)
-    pi_cam = pi_cam / torch.linalg.norm(pi_cam, dim=-1, keepdim=True)
-    R_A_dag = R_A.conj().mT
-    return torch.matmul(pi_cam, R_A_dag.mT)
-
-
-def solve_camera_position_closed_form(landmarks_xyz, ray_spinors_pi):
-    """
-    Fused float32 normal-equation solver for projective twistor incidence:
-        <pi_perp | (X_i - C) | pi> = 0
-    Runs in ~0.55 ms for up to 100,000 landmarks on GPU/XPU.
-    """
-    a0 = ray_spinors_pi[:, 0].real
-    b0 = ray_spinors_pi[:, 0].imag
-    a1 = ray_spinors_pi[:, 1].real
-    b1 = ray_spinors_pi[:, 1].imag
-
-    re_p0_sq = a0 * a0 - b0 * b0
-    im_p0_sq = 2.0 * a0 * b0
-    re_p1_sq = a1 * a1 - b1 * b1
-    im_p1_sq = 2.0 * a1 * b1
-    re_p0_p1 = a0 * a1 - b0 * b1
-    im_p0_p1 = a0 * b1 + b0 * a1
-
-    r_cx = re_p0_sq - re_p1_sq
-    r_cy = -(im_p0_sq + im_p1_sq)
-    r_cz = -2.0 * re_p0_p1
-
-    i_cx = im_p0_sq - im_p1_sq
-    i_cy = re_p0_sq + re_p1_sq
-    i_cz = -2.0 * im_p0_p1
-
-    x = landmarks_xyz[:, 0]
-    y = landmarks_xyz[:, 1]
-    z = landmarks_xyz[:, 2]
-
-    rhs_r = r_cx * x + r_cy * y + r_cz * z
-    rhs_i = i_cx * x + i_cy * y + i_cz * z
-
-    A_real = torch.cat([
-        torch.stack([r_cx, r_cy, r_cz], dim=-1),
-        torch.stack([i_cx, i_cy, i_cz], dim=-1),
-    ], dim=0)
-    b_real = torch.cat([rhs_r, rhs_i], dim=0).unsqueeze(-1)
-
-    ATA = torch.matmul(A_real.mT, A_real) + 1e-9 * torch.eye(3, device=A_real.device)
-    ATb = torch.matmul(A_real.mT, b_real)
-    return torch.linalg.solve(ATA, ATb).squeeze(-1)
-
-
-def pixel_to_stereographic_uv(px, py, fx, fy, cx, cy):
-    """
-    Converts standard pinhole camera pixel coordinates (px, py) with intrinsics
-    (fx, fy, cx, cy) into exact celestial-sphere stereographic coordinates (u, v)
-    expected by twistor.localize() and twistor.localize_ransac().
-    """
+def pixel_to_stereographic_spinor(px: torch.Tensor, py: torch.Tensor, fx: float, fy: float, cx: float, cy: float) -> torch.Tensor:
     xn = (px - cx) / fx
     yn = (py - cy) / fy
-    r = torch.sqrt(xn * xn + yn * yn + 1.0)
-    denom = r + 1.0
-    return torch.stack([xn / denom, yn / denom], dim=-1)
+    r = torch.sqrt(1.0 + xn**2 + yn**2)
+    u = xn / (r + 1.0)
+    v = yn / (r + 1.0)
+    norm = torch.sqrt(1.0 + u**2 + v**2)
+    p0 = torch.complex(1.0 / norm, torch.zeros_like(norm))
+    p1 = torch.complex(u / norm, v / norm)
+    return torch.stack([p0, p1], dim=-1)
+
+def spinor_to_transverse_basis(pi: torch.Tensor):
+    # Enforce unit spinor normalization
+    norm = torch.sqrt(torch.sum(torch.abs(pi)**2, dim=-1, keepdim=True) + 1e-12)
+    pi = pi / norm
+    p0, p1 = pi[..., 0], pi[..., 1]
+    p0_sq, p1_sq, p0_p1 = p0**2, p1**2, p0 * p1
+
+    a = torch.stack([
+        (p0_sq - p1_sq).real,
+        -(p0_sq + p1_sq).imag,
+        -2.0 * p0_p1.real
+    ], dim=-1)
+
+    b = torch.stack([
+        (p0_sq - p1_sq).imag,
+        (p0_sq + p1_sq).real,
+        -2.0 * p0_p1.imag
+    ], dim=-1)
+
+    n = torch.stack([
+        2.0 * (p0 * torch.conj(p1)).real,
+        -2.0 * (p0 * torch.conj(p1)).imag,
+        torch.abs(p0)**2 - torch.abs(p1)**2
+    ], dim=-1)
+    return a, b, n
+
+def verify_cheirality(C: torch.Tensor, landmarks: torch.Tensor, rays_n: torch.Tensor) -> torch.Tensor:
+    """
+    Verifies positive landmark depth (lambda_i > 0) along forward camera rays.
+    """
+    disp = landmarks - C.unsqueeze(0)
+    depths = torch.sum(disp * rays_n, dim=-1)
+    return depths > 0.0
+
+def solve_camera_position_spinor(pi_world: torch.Tensor, landmarks: torch.Tensor, cond_threshold: float = 1e5):
+    """
+    Exact linear spinor incidence solver with SVD rank/conditioning diagnostics and cheirality verification.
+    """
+    a, b, n = spinor_to_transverse_basis(pi_world)
+    N = landmarks.shape[0]
+    A = torch.empty((2 * N, 3), dtype=landmarks.dtype, device=landmarks.device)
+    d = torch.empty((2 * N,), dtype=landmarks.dtype, device=landmarks.device)
+
+    A[0::2] = a
+    A[1::2] = b
+    d[0::2] = torch.sum(a * landmarks, dim=-1)
+    d[1::2] = torch.sum(b * landmarks, dim=-1)
+
+    # Conditioning & Rank Check via Singular Value Decomposition
+    _, S, _ = torch.linalg.svd(A, full_matrices=False)
+    rank = int(torch.sum(S > 1e-6).item())
+    cond = float((S[0] / torch.clamp(S[-1], min=1e-12)).item()) if S.numel() >= 3 else float('inf')
+    is_well_conditioned = (rank == 3) and (cond < cond_threshold)
+
+    C_est = torch.linalg.lstsq(A, d.unsqueeze(-1)).solution.squeeze(-1)
+    cheirality_mask = verify_cheirality(C_est, landmarks, n)
+
+    return {
+        "position": C_est,
+        "rank": rank,
+        "condition_number": cond,
+        "is_valid": is_well_conditioned and bool(torch.all(cheirality_mask).item()),
+        "cheirality_mask": cheirality_mask
+    }
+
+def solve_camera_position_euclidean_reference(rays_n: torch.Tensor, landmarks: torch.Tensor):
+    """
+    Independent Euclidean orthogonal projector solver (P_i = I - n_i n_i^T) solved via QR/SVD lstsq.
+    Does not reuse spinor coefficients.
+    """
+    rays_n = rays_n / torch.norm(rays_n, dim=-1, keepdim=True)
+    I = torch.eye(3, dtype=landmarks.dtype, device=landmarks.device).unsqueeze(0)
+    P = I - torch.einsum("ni,nj->nij", rays_n, rays_n)
+    A = P.reshape(-1, 3)
+    b = torch.einsum("nij,nj->ni", P, landmarks).reshape(-1)
+    C_ref = torch.linalg.lstsq(A, b.unsqueeze(-1)).solution.squeeze(-1)
+    return C_ref
