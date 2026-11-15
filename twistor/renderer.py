@@ -1,16 +1,13 @@
 import math
 import torch
-from twistor.incidence import sl2c_from_lie_algebra, sl2c_inverse_dagger
+from twistor.incidence import sl2c_from_lie_algebra
 from twistor.penrose_core import PenroseTwistorCore
 from twistor.harmonics import PenroseTwistorHarmonicEngine
 
 class TwistorRenderer:
     """
-    Implements 15-parameter SU(2,2) twistor transformations and native spinor Pauli rasterization:
-      - Evaluates the perpendicular point-to-ray residual directly in spinor Pauli algebra:
-            r_perp^2 = ||D pi||^2 - |<pi | D | pi>|^2,  where D = (X_i - C)_k sigma^k.
-      - Tracks both omega'^A and pi'_{A'} under G in SU(2,2), extracting the transformed ray direction
-        from pi'_{A'} and the incidence-shifted ray origin offset from omega'^A = i X'^{AA'} pi'_{A'}.
+    Implements the full 15-parameter Conformal Twistor Group SU(2,2) action via exact
+    fractional linear transformations on Hermitian spacetime matrices X' = (AX - iB)(iCX + D)^{-1}.
     """
     def __init__(self, width: int = 64, height: int = 64, fov_deg: float = 60.0, device=None):
         self.device = device or torch.device("cpu")
@@ -45,6 +42,60 @@ class TwistorRenderer:
         return K @ D @ P
 
     @staticmethod
+    def transform_spacetime_event_su22(G: torch.Tensor, X_cam: torch.Tensor) -> torch.Tensor:
+        A = G[0:2, 0:2]
+        B = G[0:2, 2:4]
+        C = G[2:4, 0:2]
+        D = G[2:4, 2:4]
+
+        if X_cam.ndim == 2:
+            num = A @ X_cam - 1j * B
+            den = 1j * C @ X_cam + D
+            return num @ torch.linalg.inv(den)
+        else:
+            num = torch.einsum("ab,mbc->mac", A, X_cam) - 1j * B.unsqueeze(0)
+            den = 1j * torch.einsum("ab,mbc->mac", C, X_cam) + D.unsqueeze(0)
+            return num @ torch.linalg.inv(den)
+
+    @staticmethod
+    def reconstruct_ray_origins_from_twistors(Z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        omega = Z[:, 0:2]
+        pi = Z[:, 2:4]
+        
+        pi_norm = torch.linalg.norm(pi, dim=-1, keepdim=True).clamp(min=1e-12)
+        pi_unit = pi / pi_norm
+        omega_unit = omega / pi_norm
+        Z_norm = torch.cat([omega_unit, pi_unit], dim=-1)
+
+        pi_dag_omega = torch.sum(torch.conj(pi_unit) * omega_unit, dim=-1, keepdim=True)
+        tau = -pi_dag_omega.imag  # FIXED: negative sign for correct temporal gauge shift tau = -Im(pi^\dagger omega)
+
+        term1 = torch.einsum("mi,mj->mij", omega_unit, torch.conj(pi_unit))
+        term2 = torch.einsum("mi,mj->mij", pi_unit, torch.conj(omega_unit))
+
+        X_herm = -1j * (term1 - term2)
+        I2 = torch.eye(2, dtype=X_herm.dtype, device=X_herm.device).unsqueeze(0)
+        X_herm = 0.5 * (X_herm + torch.conj(X_herm.mT)) + tau.unsqueeze(-1) * I2
+
+        X00 = X_herm[:, 0, 0]
+        X01 = X_herm[:, 0, 1]
+        X10 = X_herm[:, 1, 0]
+        X11 = X_herm[:, 1, 1]
+
+        t_val = 0.5 * (X00 + X11).real
+        z_val = 0.5 * (X00 - X11).real
+        x_val = 0.5 * (X01 + X10).real
+        y_val = 0.5 * (X10 - X01).imag  # FIXED: removed 1j so .imag correctly extracts spatial y
+
+        x4 = torch.stack([t_val, x_val, y_val, z_val], dim=-1)
+        t_event = x4[:, 0:1]
+        xyz_event = x4[:, 1:4]
+        ray_dirs = PenroseTwistorHarmonicEngine.spinor_to_unit_ray(pi_unit)
+
+        ray_origins_3d = xyz_event - t_event * ray_dirs
+        return ray_origins_3d, X_herm, Z_norm  # Returns unit-normalized Z_norm contract
+
+    @staticmethod
     def lift_points_to_null_cone_twistors(pts_3d: torch.Tensor, camera_center: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         rel_3d = pts_3d - camera_center.unsqueeze(0)
         dist = torch.norm(rel_3d, dim=-1, keepdim=True)
@@ -57,33 +108,40 @@ class TwistorRenderer:
 
     @staticmethod
     def spatial_traceless_hermitian(d_vec: torch.Tensor) -> torch.Tensor:
-        dx, dy, dz = d_vec[..., 0], d_vec[..., 1], d_vec[..., 2]
-        c_dtype = torch.complex128 if d_vec.dtype == torch.float64 else torch.complex64
-        zero = torch.zeros_like(dx)
-        D00 = torch.complex(dz, zero)
-        D01 = torch.complex(dx, -dy)
-        D10 = torch.complex(dx,  dy)
-        D11 = torch.complex(-dz, zero)
+        dx = d_vec[..., 0].real if d_vec.is_complex() else d_vec[..., 0]
+        dy = d_vec[..., 1].real if d_vec.is_complex() else d_vec[..., 1]
+        dz = d_vec[..., 2].real if d_vec.is_complex() else d_vec[..., 2]
+
+        c_dtype = torch.complex128 if d_vec.dtype in [torch.float64, torch.complex128] else torch.complex64
+        zero = torch.zeros_like(dx, dtype=dx.dtype)
+        D00 = torch.complex(dz, zero).to(c_dtype)
+        D01 = torch.complex(dx, -dy).to(c_dtype)
+        D10 = torch.complex(dx,  dy).to(c_dtype)
+        D11 = torch.complex(-dz, zero).to(c_dtype)
         return torch.stack([
             torch.stack([D00, D01], dim=-1),
             torch.stack([D10, D11], dim=-1)
-        ], dim=-2).to(c_dtype)
+        ], dim=-2)
 
     @staticmethod
-    def spinor_perpendicular_residual_sq(pts_3d: torch.Tensor, camera_center: torch.Tensor, ray_spinors: torch.Tensor, return_parallel: bool = False):
-        """
-        Evaluates the perpendicular point-to-ray squared distance natively via spinor Pauli algebra:
-            D = (X_i - C)_k sigma^k
-            proj_par = <pi | D | pi> = d . n
-            r_perp^2 = ||D pi||^2 - |<pi | D | pi>|^2
-        """
-        d_vec = pts_3d - camera_center.unsqueeze(0)  # (N, 3)
-        D_mat = TwistorRenderer.spatial_traceless_hermitian(d_vec)  # (N, 2, 2)
+    def spinor_perpendicular_residual_sq(
+        pts_3d: torch.Tensor,
+        camera_center: torch.Tensor,
+        ray_spinors: torch.Tensor,
+        return_parallel: bool = False,
+    ):
         pi_norm = ray_spinors / torch.linalg.norm(ray_spinors, dim=-1, keepdim=True).clamp(min=1e-12)
+        if camera_center.ndim == 1:
+            d_vec = pts_3d - camera_center.unsqueeze(0)
+            D_mat = TwistorRenderer.spatial_traceless_hermitian(d_vec)
+            D_pi = torch.einsum("nab,mb->mna", D_mat, pi_norm)
+        else:
+            d_vec = pts_3d.unsqueeze(0) - camera_center.unsqueeze(1)
+            D_mat = TwistorRenderer.spatial_traceless_hermitian(d_vec)
+            D_pi = torch.einsum("mnab,mb->mna", D_mat, pi_norm)
 
-        D_pi = torch.einsum("nab,mb->mna", D_mat, pi_norm)
-        norm_D_pi_sq = torch.sum(torch.abs(D_pi) ** 2, dim=-1).real  # (M, N)
-        proj_par = torch.einsum("ma,mna->mn", torch.conj(pi_norm), D_pi).real  # (M, N)
+        norm_D_pi_sq = torch.sum(torch.abs(D_pi) ** 2, dim=-1).real
+        proj_par = torch.einsum("ma,mna->mn", torch.conj(pi_norm), D_pi).real
         r_perp_sq = torch.clamp(norm_D_pi_sq - proj_par ** 2, min=0.0)
         if return_parallel:
             return r_perp_sq, proj_par, norm_D_pi_sq
@@ -91,28 +149,28 @@ class TwistorRenderer:
 
     @staticmethod
     def euclidean_perpendicular_residual_sq(pts_3d: torch.Tensor, camera_center: torch.Tensor, ray_dirs: torch.Tensor) -> torch.Tensor:
-        d_vec = pts_3d - camera_center.unsqueeze(0)
-        d_norm_sq = torch.sum(d_vec ** 2, dim=-1).unsqueeze(0)
         n_unit = ray_dirs / torch.linalg.norm(ray_dirs, dim=-1, keepdim=True).clamp(min=1e-12)
-        dot_dn = torch.einsum("mc,nc->mn", n_unit, d_vec)
+        if camera_center.ndim == 1:
+            d_vec = pts_3d - camera_center.unsqueeze(0)
+            d_norm_sq = torch.sum(d_vec ** 2, dim=-1).unsqueeze(0)
+            dot_dn = torch.einsum("mc,nc->mn", n_unit, d_vec)
+        else:
+            d_vec = pts_3d.unsqueeze(0) - camera_center.unsqueeze(1)
+            d_norm_sq = torch.sum(d_vec ** 2, dim=-1)
+            dot_dn = torch.einsum("mc,mnc->mn", n_unit, d_vec)
         return torch.clamp(d_norm_sq - dot_dn ** 2, min=0.0)
 
     def generate_camera_rays(
         self,
         theta_3d: torch.Tensor = None,
         boost_3d: torch.Tensor = None,
-        trans_4d: torch.Tensor = None,
         special_conformal_4d: torch.Tensor = None,
         dilation_lambda: float = 0.0,
         camera_center: torch.Tensor = None,
         dtype=torch.float64,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Generates pixel ray spinors pi'_{A'} and unit directions n_k transformed by G in SU(2,2).
-        Note: On the projective celestial sphere CP^1, rotations and boosts Lambda in SL(2,C)
-        act directly on pi_{A'}, whereas translations T, dilations D(lambda), and special conformal K(b)
-        coupleomega^A and pi_{A'} when camera_center / translation is non-zero.
-        """
+        trans_4d: torch.Tensor = None,
+        return_ray_origins: bool = False,
+    ):
         aspect = float(self.width) / float(self.height)
         fov_rad = math.radians(self.fov_deg)
         half_tan = math.tan(0.5 * fov_rad)
@@ -127,10 +185,13 @@ class TwistorRenderer:
         pi = PenroseTwistorHarmonicEngine.points_to_celestial_spinors(dirs_local)
 
         if camera_center is not None:
-            cam_4d = torch.cat([torch.norm(camera_center).unsqueeze(0), camera_center], dim=0)
+            dist_c = torch.norm(camera_center).to(dtype=dtype, device=self.device)
+            cam_4d = torch.cat([dist_c.unsqueeze(0), camera_center], dim=0)
             X_cam = PenroseTwistorCore.spacetime_to_hermitian(cam_4d)
             omega = 1j * torch.einsum("ab,mb->ma", X_cam, pi)
         else:
+            cam_4d = torch.zeros(4, dtype=dtype, device=self.device)
+            X_cam = PenroseTwistorCore.spacetime_to_hermitian(cam_4d)
             omega = torch.zeros_like(pi)
 
         Z = torch.cat([omega, pi], dim=-1)
@@ -142,9 +203,13 @@ class TwistorRenderer:
 
         G = self.build_full_15param_su22_matrix(t3, b3, tr4, sc4, dilation_lambda=dilation_lambda)
         Z_transformed = torch.einsum("ab,mb->ma", G, Z)
-        pi_transformed = Z_transformed[:, 2:4]
-        pi_transformed = pi_transformed / torch.linalg.norm(pi_transformed, dim=-1, keepdim=True).clamp(min=1e-12)
+
+        ray_origins_3d, X_ray_herm, Z_norm = self.reconstruct_ray_origins_from_twistors(Z_transformed)
+        pi_transformed = Z_norm[:, 2:4]
         ray_dirs = PenroseTwistorHarmonicEngine.spinor_to_unit_ray(pi_transformed)
+
+        if return_ray_origins:
+            return pi_transformed, ray_dirs, ray_origins_3d, X_ray_herm, Z_norm
         return pi_transformed, ray_dirs
 
     def render(
@@ -152,16 +217,12 @@ class TwistorRenderer:
         pts_3d: torch.Tensor,
         camera_center: torch.Tensor,
         ray_dirs: torch.Tensor = None,
-        ray_spinors: torch.Tensor = None,
         sigma: float = 0.15,
+        ray_spinors: torch.Tensor = None,
     ) -> torch.Tensor:
-        """
-        Renders point-splat intensities natively using the spinor Pauli perpendicular residual:
-            r_perp^2 = ||D pi||^2 - |<pi | D | pi>|^2,  proj_par = <pi | D | pi>.
-        """
         if ray_spinors is None:
             if ray_dirs is None:
-                raise ValueError("Either ray_spinors or ray_dirs must be provided to TwistorRenderer.render()")
+                raise ValueError("Either ray_dirs or ray_spinors must be provided to TwistorRenderer.render()")
             ray_spinors = PenroseTwistorHarmonicEngine.points_to_celestial_spinors(ray_dirs)
 
         r_perp_sq, proj_par, dist_sq = self.spinor_perpendicular_residual_sq(
