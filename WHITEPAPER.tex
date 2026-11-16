@@ -1,0 +1,39 @@
+﻿Set-Location "C:\Users\Ivan\twistor-render-core"
+# Copy the LaTeX block above into WHITEPAPER.tex using your editor or clipboard:
+Get-Clipboard | Set-Content -Path "C:\Users\Ivan\twistor-render-core\WHITEPAPER.tex" -Encoding UTF8
+
+% ============================================================================
+% Project Argon (v5.9.0): Palatial CP^4 Standing-Wave & Berry Holonomy Appendix
+% ============================================================================
+\section{Project Argon: Palatial $\mathbb{CP}^4$ Standing-Wave Engine \& Berry Holonomy}
+
+\subsection{The Pseudo-Hermitian $\mathrm{SU}(2,3)$ Metric $\Sigma_5$}
+On the 5-dimensional homogeneous twistor-horizon space $\mathbb{C}^5 \setminus \{0\} \to \mathbb{CP}^4$ with coordinates $\mathcal{Z}^I = (\omega^0, \omega^1, \pi_{0'}, \pi_{1'}, \phi_{\text{horizon}})^T$, the indefinite inner product is governed by the real symmetric matrix $\Sigma_5 \in \mathbb{R}^{5 \times 5}$:
+\begin{equation}
+\Sigma_5 = \begin{pmatrix}
+0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 1 & 0 \\
+1 & 0 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 1
+\end{pmatrix}, \qquad \langle \mathcal{Z}_a | \Sigma_5 | \mathcal{Z}_b \rangle = \mathcal{Z}_a^\dagger \Sigma_5 \mathcal{Z}_b.
+\end{equation}
+
+\subsection{Schur-Weyl GPO Triadic Partition of Unity \& Casimir Spectrum}
+The pure-state density operator $\rho_t = |\hat{\mathcal{Z}}_t\rangle\langle\hat{\mathcal{Z}}_t|$ on the unit Hopf bundle $S^9 \xrightarrow{\mathrm{U}(1)} \mathbb{CP}^4$ decomposes into three mutually orthogonal Schur-Weyl harmonic projectors $\hat{P}_G + \hat{P}_P + \hat{P}_O = I_5$:
+\begin{equation}
+c_G(t) = \operatorname{Tr}(\rho_t \hat{P}_G), \quad
+c_P(t) = \operatorname{Tr}(\rho_t \hat{P}_P), \quad
+c_O(t) = \operatorname{Tr}(\rho_t \hat{P}_O), \quad
+c_G(t) + c_P(t) + c_O(t) \equiv 1.
+\end{equation}
+For $\mathrm{U}(1)$ gauge-invariant standing waves of bi-degree $(\ell, \ell)$ on $\mathbb{CP}^4$ ($n=4$), the Kähler Laplacian eigenvalues obey $E_{\ell,\ell}^{(4)} = 2\ell(2\ell + 4)$, yielding exact integer weights $\{0, 12, 32\}$ for the Casimir energy functional:
+\begin{equation}
+\mathcal{E}_{\text{Casimir}}^{(4)}(t) = 0 \cdot c_G(t) + 12 \cdot c_P(t) + 32 \cdot c_O(t).
+\end{equation}
+
+\subsection{Discrete Fubini-Study Symplectic Connection \& Wilson Loop Berry Holonomy}
+The pullback Fubini-Study connection 1-form $\mathcal{A} = i \hat{\mathcal{Z}}^\dagger d\hat{\mathcal{Z}}$ and Berry curvature 2-form $\mathcal{F} = d\mathcal{A} = i d\hat{\mathcal{Z}}^\dagger (I_5 - \hat{\mathcal{Z}}\hat{\mathcal{Z}}^\dagger) \wedge d\hat{\mathcal{Z}}$ are evaluated over sliding temporal windows of length $W$ via the gauge-invariant $\mathrm{U}(1)$ Wilson loop:
+\begin{equation}
+\gamma_{\text{sliding}}(t) = \arg \left( \left( \prod_{k=0}^{W-1} \hat{\mathcal{Z}}_{t+k}^\dagger \hat{\mathcal{Z}}_{t+k+1} \right) \hat{\mathcal{Z}}_{t+W}^\dagger \hat{\mathcal{Z}}_t \right).
+\end{equation}

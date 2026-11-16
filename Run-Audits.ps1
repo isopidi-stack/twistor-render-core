@@ -1,3 +1,5 @@
+﻿Push-Location
+try {
 $ErrorActionPreference = "Stop"
 
 $corePath = "C:\Users\Ivan\twistor-render-core"
@@ -51,3 +53,7 @@ Write-Host "`n[SUCCESS] AI-Vector-Shield benchmark and unit tests passed!" -Fore
 Write-Host "`n=======================================================" -ForegroundColor Cyan
 Write-Host " ALL REPOSITORIES VERIFIED & GREEN AT $(Get-Date) " -ForegroundColor Green
 Write-Host "=======================================================" -ForegroundColor Cyan
+} finally {
+    Pop-Location
+}
+
