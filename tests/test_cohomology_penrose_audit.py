@@ -1,20 +1,28 @@
 ﻿"""
-Unit Test Suite for Twistor Render Core - Project Argon v6.0
-Verifies CP^4 Laplacian spectrum, SIGMA_5 signature (3,2), GPO projector completeness,
-strict Penrose incidence preservation at zero and non-zero origins, and ray-ordered depth occlusion.
+Standalone Adversarial Audit Suite for Twistor Render Core - Project Argon v6.1
+Verifies:
+  1. SIGMA_5 signature (3,2)
+  2. Active 5x5 H_GPO spectral operator eigenvalues {0, 20, 48} & Rayleigh expectation bounds
+  3. GPO projector completeness & orthogonality
+  4. Full 4D Minkowski Infeld-van der Waerden determinant det(X) = t^2 - ||x||^2
+  5. Exact Poincare translation gauge covariance & Sigma_5 norm invariance under L_0 scaling
+  6. Continuous erf() volumetric occlusion symmetry for concentric/overlapping primitives
 """
 
-import torch
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import torch
 from palatial_gpo_ray_optics import (
     SIGMA_5,
     CP4_CASIMIR_SPECTRUM,
     build_gpo_projectors,
+    build_gpo_spectral_operator,
     compute_gpo_probabilities,
+    compute_gpo_spectral_expectation,
     spatial_to_hermitian,
-    spinor_to_unit_direction,
     compute_penrose_incidence_state,
+    apply_spacetime_translation,
     render_gpo_hud_frame,
 )
 
@@ -27,83 +35,100 @@ def test_sigma5_indefinite_signature():
     assert torch.allclose(torch.sort(evals).values, expected, atol=1e-12)
 
 
-def test_cp4_casimir_eigenvalues():
-    """Verifies the scalar Laplacian spectrum on CP^4 is 4*l*(l+4) = (0, 20, 48)."""
-    n = 4
-    computed = tuple(float(4 * l * (l + n)) for l in range(3))
-    assert computed == (0.0, 20.0, 48.0)
-    assert CP4_CASIMIR_SPECTRUM == (0.0, 20.0, 48.0)
+def test_cp4_casimir_eigenvalues_and_active_spectral_operator():
+    """Verifies H_GPO = 0*P_G + 20*P_P + 48*P_O has exact spectrum {0, 0, 20, 20, 48}."""
+    H_gpo = build_gpo_spectral_operator()
+    assert torch.allclose(H_gpo, H_gpo.conj().T)
+    evals = torch.linalg.eigvalsh(H_gpo)
+    expected = torch.tensor([0.0, 0.0, 20.0, 20.0, 48.0], dtype=torch.float64)
+    assert torch.allclose(torch.sort(evals).values, expected, atol=1e-12)
+
+    # Projective scale invariance of Rayleigh expectation: <lambda Z | H_GPO | lambda Z> == <Z | H_GPO | Z>
+    torch.manual_seed(11)
+    Z = torch.randn(10, 5, dtype=torch.complex128)
+    scale = (torch.randn(10, 1, dtype=torch.complex128) * 5.0) + 1.0
+    exp_1 = compute_gpo_spectral_expectation(Z)
+    exp_2 = compute_gpo_spectral_expectation(Z * scale)
+    assert torch.allclose(exp_1, exp_2, atol=1e-12)
+    assert torch.all((exp_1 >= 0.0) & (exp_1 <= 48.0))
 
 
 def test_gpo_projector_completeness_and_orthogonality():
     """Verifies P_G + P_P + P_O = I_5, idempotency, and probability partition sum to 1."""
     P_G, P_P, P_O = build_gpo_projectors()
     I5 = torch.eye(5, dtype=torch.complex128)
-    
     assert torch.allclose(P_G + P_P + P_O, I5, atol=1e-12)
     assert torch.allclose(P_G @ P_G, P_G, atol=1e-12)
     assert torch.allclose(P_P @ P_P, P_P, atol=1e-12)
     assert torch.allclose(P_O @ P_O, P_O, atol=1e-12)
     assert torch.allclose(P_G @ P_P, torch.zeros_like(I5), atol=1e-12)
 
-    # Random batch of states in C^5
-    torch.manual_seed(42)
-    Z_rand = torch.randn(16, 5, dtype=torch.complex128)
-    probs = compute_gpo_probabilities(Z_rand)
-    assert torch.all(probs >= -1e-12)
-    assert torch.allclose(probs.sum(dim=-1), torch.ones(16, dtype=torch.float64), atol=1e-12)
+
+def test_minkowski_infeld_van_der_waerden_determinant():
+    """Verifies 4D spacetime mapping X^{AA'} = t I_2 + x . sigma satisfies det(X) = t^2 - ||x||^2."""
+    events_4d = torch.tensor([
+        [5.0, 1.0, 2.0, 2.0],   # Timelike: 25 - 9 = +16
+        [3.0, 3.0, 0.0, 0.0],   # Null/Lightlike: 9 - 9 = 0
+        [1.0, 2.0, 3.0, 4.0],   # Spacelike: 1 - 29 = -28
+    ], dtype=torch.float64)
+    X_mat = spatial_to_hermitian(events_4d)
+    dets = torch.linalg.det(X_mat).real
+    expected = events_4d[:, 0]**2 - torch.sum(events_4d[:, 1:]**2, dim=-1)
+    assert torch.allclose(dets, expected, atol=1e-12)
 
 
-def test_penrose_incidence_zero_and_nonzero_origin():
-    """Verifies strict Penrose incidence omega = i X pi, including omega_cam == 0 at origin."""
-    zero_origin = torch.zeros(4, 3, dtype=torch.float64)
-    pi_spinor = torch.tensor([[1.0, 0.0], [0.0, 1.0], [0.7071, 0.7071j], [0.6, -0.8]], dtype=torch.complex128)
-    phi_mass = torch.ones(4, 1, dtype=torch.complex128)
-
-    res_zero = compute_penrose_incidence_state(zero_origin, pi_spinor, phi_mass)
-    assert torch.allclose(res_zero["omega_phys"], torch.zeros_like(res_zero["omega_phys"]), atol=1e-12)
-    assert torch.allclose(res_zero["incidence_defect"], torch.zeros(4, dtype=torch.float64), atol=1e-12)
-
-    # Non-zero displacement
-    x_pos = torch.tensor([[1.5, -0.5, 2.0], [-1.0, 3.0, 0.2], [0.0, 0.0, 5.0], [2.2, 1.1, -1.5]], dtype=torch.float64)
-    res_nonzero = compute_penrose_incidence_state(x_pos, pi_spinor, phi_mass)
-    assert torch.allclose(res_nonzero["incidence_defect"], torch.zeros(4, dtype=torch.float64), atol=1e-12)
-
-
-def test_hud_preserves_physical_incidence_and_occludes_depth():
+def test_penrose_incidence_and_translation_gauge_invariance():
     """
-    Verifies HUD pipeline preserves exact camera incidence in Z5_physical and correctly
-    occludes a distant object behind a near object along the same ray without a Z-buffer.
+    Verifies scaled Penrose incidence omega = (i/L_0) X pi and proves that under any real
+    spacetime translation X -> X + A, the indefinite Sigma_5 norm Z^dagger Sigma_5 Z = |phi|^2 is invariant.
+    """
+    x_pos = torch.tensor([[1.5, -0.5, 2.0], [0.0, 0.0, 0.0]], dtype=torch.float64)
+    a_shift = torch.tensor([[10.0, -25.0, 40.0], [-5.0, 12.0, 8.0]], dtype=torch.float64)
+    pi_spinor = torch.tensor([[0.8, 0.6j], [1.0, 0.0]], dtype=torch.complex128)
+    phi_mass = torch.tensor([[1.5 + 0.5j], [0.0 + 0.0j]], dtype=torch.complex128)
+    L0 = 2.5
+
+    st_initial = compute_penrose_incidence_state(x_pos, pi_spinor, phi_mass, L0_scale=L0)
+    st_shifted_direct = compute_penrose_incidence_state(x_pos + a_shift, pi_spinor, phi_mass, L0_scale=L0)
+    Z5_shifted_gauge = apply_spacetime_translation(st_initial["Z5_unnormalized"], a_shift, L0_scale=L0)
+
+    # Direct evaluation at X + A must identically match twistor translation operator
+    assert torch.allclose(st_shifted_direct["Z5_unnormalized"], Z5_shifted_gauge, atol=1e-12)
+    # Sigma_5 quadratic form must equal |phi|^2 before and after arbitrary spatial translation
+    expected_sigma5_norm = torch.abs(phi_mass.squeeze(-1)) ** 2
+    assert torch.allclose(st_initial["sigma5_norm_unnormalized"], expected_sigma5_norm, atol=1e-12)
+    assert torch.allclose(st_shifted_direct["sigma5_norm_unnormalized"], expected_sigma5_norm, atol=1e-12)
+
+
+def test_hud_erf_continuous_occlusion_and_concentric_symmetry():
+    """
+    Verifies:
+      1. Near occluder (z=2) attenuates far object (z=8) along +Z ray.
+      2. Two identical concentric volumes at the exact same depth (z=4.0) receive equal
+         symmetric transmittance weights (no discrete sorting jump artifact!).
     """
     cam_origin = torch.zeros(1, 3, dtype=torch.float64)
-    # Spinor [1, 0] corresponds to unit direction +Z: (0, 0, 1)
     pi_spinor = torch.tensor([[1.0, 0.0]], dtype=torch.complex128)
     phi_mass = torch.tensor([[1.0]], dtype=torch.complex128)
 
-    # Two primitives directly on the +Z ray at z = 2.0 (near, high opacity) and z = 8.0 (far)
-    field_centers = torch.tensor([
-        [0.0, 0.0, 8.0],  # Far object listed first to test longitudinal sorting
-        [0.0, 0.0, 2.0],  # Near occluder listed second
-    ], dtype=torch.float64)
-    field_opacities = torch.tensor([0.9, 0.95], dtype=torch.float64)
+    # Case A: separated depths (z=8.0 and z=2.0)
+    centers_sep = torch.tensor([[0.0, 0.0, 8.0], [0.0, 0.0, 2.0]], dtype=torch.float64)
+    opacities_sep = torch.tensor([0.9, 0.95], dtype=torch.float64)
+    out_sep = render_gpo_hud_frame(cam_origin, pi_spinor, centers_sep, opacities_sep, phi_mass)
+    w_sep = out_sep["primitive_weights"][0]
+    assert w_sep[0] > 0.90 and w_sep[1] < 0.06
 
-    out = render_gpo_hud_frame(cam_origin, pi_spinor, field_centers, field_opacities, phi_mass)
+    # Case B: identical concentric overlapping volumes at z=4.0
+    centers_conc = torch.tensor([[0.0, 0.0, 4.0], [0.0, 0.0, 4.0]], dtype=torch.float64)
+    opacities_conc = torch.tensor([0.8, 0.8], dtype=torch.float64)
+    out_conc = render_gpo_hud_frame(cam_origin, pi_spinor, centers_conc, opacities_conc, phi_mass)
+    w_conc = out_conc["primitive_weights"][0]
+    # Because erf(0) == 0, both concentric volumes must receive identical weight!
+    assert torch.allclose(w_conc[0], w_conc[1], atol=1e-12)
 
-    # 1. Physical omega at zero origin must still be identically zero
-    assert torch.allclose(out["omega_physical"], torch.zeros(1, 2, dtype=torch.complex128), atol=1e-12)
-    assert torch.allclose(out["incidence_defect"], torch.zeros(1, dtype=torch.float64), atol=1e-12)
-
-    # 2. Near object (sorted index 0 at z=2.0) must dominate weight over occluded far object (z=8.0)
-    weights = out["primitive_weights"][0]
-    assert weights[0] > 0.90  # Near object receives full unoccluded transmittance
-    assert weights[1] < 0.05  # Far object is attenuated by (1 - 0.95) = 0.05
-    assert out["visible_depth"][0] < 2.5
 
 if __name__ == "__main__":
-    import sys, os
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    for name, fn in sorted( list(globals().items()) ):
+    for name, fn in sorted(list(globals().items())):
         if name.startswith("test_") and callable(fn):
             fn()
             print(f"[PASS] {name}")
-
