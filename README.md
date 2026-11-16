@@ -1,27 +1,45 @@
-# Twistor-Render-Core (v3.8-adaptive-contour-cech)
+﻿# Twistor-Render-Core (v4.0.0-verified)
 
-A PyTorch library for $\mathrm{SL}(2,\mathbb{C})$ spinor algebra, 15-parameter $\mathrm{SU}(2,2)$ conformal twistor transformations, adaptive-contour Penrose transforms, explicit $U_0/U_1$ Cech open-cover holomorphicity checks, $L^2(\mathbb{CP}^1)$ spherical harmonics, and recursive AABB BVH ray-splat rendering.
+**Z-Buffer-Free, Gimbal-Free Conformal Ray Tracing, Penrose Twistor Incidence Geometry, and Cech Cohomology Wave Engine on CP^3 / CP^1**
 
----
-
-## 1. Mathematical & Algorithmic Verification Suite (24 Unit Tests)
-
-All claims and identities are verified by 24 automated unit tests in `tests/` and enforced via GitHub Actions CI (`.github/workflows/ci.yml`):
-
-| Module & Test Suite | Mathematical / Algorithmic Property Tested | Verified Result |
-| :--- | :--- | :--- |
-| **1. Adaptive-Radius Penrose Transform** (`twistor/cohomology_penrose.py`, `test_3`) | Elementary state $f(Z) = ((A\cdot Z)(B\cdot Z))^{-1} \in \mathcal{O}(-2)$ without artificial regularizers; adaptive geometric-mean contour radius $\rho(x) = \sqrt{\|\zeta_A(x)\| \, \|\zeta_B(x)\|}$ tested across 1,944 random 4D points in $[-1,1]^4$ (including near-boundary poles where fixed $\|\zeta\|=1$ degrades to `2.87e-01` relative error). | Homogeneity err: `1.62e-15`<br>**Adaptive $\rho$ max err (1,944 pts): `4.75e-16`**<br>Wave eq $\|\Box\phi\|/\|\phi\|$: `5.96e-17` |
-| **2. Explicit $U_0/U_1$ Cech Patch Holomorphicity** (`CechCohomologyClassH1`, `test_4`) | Verifies that 0-cochain sections $h_0(Z) = c_0 (C\cdot Z)^{-2}$ and $h_1(Z) = d_1 (D\cdot Z)^{-2}$ have no poles inside $U_0^{(\rho)} = \{\|\zeta\| \le \rho\}$ and $U_1^{(\rho)} = \{\|\zeta\| \ge \rho\} \cup \{\infty\}$, and strictly rejects invalid in-patch poles (`ValueError`). | Valid coboundary diff: `2.78e-17`<br>In-patch pole rejected: `True` |
-| **3. SL(2,C) & 15-Parameter SU(2,2) Algebra** (`twistor/incidence.py`, `twistor/penrose_core.py`) | Cayley-Hamilton Lie exponential; contragredient boost covariance $\pi' = \Lambda^{-\dagger}\pi$; full 15-parameter conformal matrix $G = K(b)D(\lambda)P(\Lambda, T)$ preserving $G^\dagger \Sigma G = \Sigma$; Klein quadric ray intersection; forward-tube splitting $\mathbb{PT}^+$. | Boost covariance: `4.85e-16`<br>15-param $\mathrm{SU}(2,2)$: `3.97e-15`<br>Tube norm on $\mathbb{PN}$: `0.00e+00` |
-| **4. Conformal Camera Ray Action & Native Spinor Rasterization** (`twistor/renderer.py`, `test_3`, `test_5`) | `TwistorRenderer.render()` evaluates the spinor Pauli perpendicular residual $\mathcal{R}^2 = \|D\pi\|^2 - |\pi^\dagger D\pi|^2$ directly (`5.39e-16` vs. Euclidean). `test_5` verifies $\omega=0$ projective no-op (`2.22e-16`) vs. active $\omega \neq 0$ ray deformation under $K(b)+C$ (`1.9795`), $K(b)+T$ (`1.2514`), and $D(\lambda)+K(b)$ (`0.5758`). | Projector identity: `6.66e-16`<br>Ray distance diff: `5.39e-16`<br>Origin $\omega=0$ no-op: `2.22e-16` |
-| **5. Recursive AABB BVH Tree** (`twistor/bvh.py`, `test_4`) | Top-down median-split Axis-Aligned Bounding Box (AABB) hierarchy with vectorized Kay-Kajiya slab ray-box culling, benchmarked against brute-force `TwistorRenderer`. | Prunes **89.9%** of ray-point pairs on clustered scenes; max diff vs. brute-force: `1.62e-08` |
-| **6. $L^2(\mathbb{CP}^1)$ Spherical Harmonics** (`twistor/harmonics.py`) | Evaluates $\ell \le 2$ spinor bilinear harmonics on the celestial sphere $S^2 \cong \mathbb{CP}^1$ ($\mathrm{SU}(2)$ Casimir spectrum $\ell(\ell+1)$), verified against `scipy.special.sph_harm_y`, autograd PDE eigenvalues, and Gauss-Legendre quadrature. | vs. SciPy: `5.75e-16`<br>Autograd PDE: `1.51e-14`<br>Orthonormality: `3.33e-15` |
+`twistor-render-core` replaces classical Euclidean Z-buffering and Euler-angle gimbals with exact projective twistor incidence geometry $\omega^A = i x^{AA'} \pi_{A'}$, full 15-parameter $\mathrm{SU}(2,2)$ conformal group transformations, spinor bilinear spherical harmonics, and non-vacuous $\mathbb{CP}^1$ Čech cohomology contour integration.
 
 ---
 
-## 2. Running the Full 24-Test Audit Suite
+## Core Mathematical Architecture
 
-```powershell
-$env:PYTHONPATH = "."
-python -m unittest discover -s tests -p "test_*.py" -v
-```
+1. **Penrose Incidence & Full 15-Parameter SU(2,2) Conformal Group (`twistor/penrose_core.py`, `twistor/incidence.py`)**
+   * Represents null rays as projective twistors $Z^\alpha = (\omega^A, \pi_{A'}) \in \mathbb{PT}$ satisfying the Hermitian null incidence relation $\langle Z, Z \rangle_\Sigma = Z^\dagger \Sigma Z = 0$.
+   * Implements exact 4x4 matrix generators for rotations $\mathrm{SU}(2)$, Lorentz boosts $\mathrm{SL}(2,\mathbb{C})$, spacetime translations $T(x)$, dilations $D(\lambda)$, and special conformal transformations $K(b)$ preserving the $\mathrm{SU}(2,2)$ signature metric $\Sigma$ to $3.97 \times 10^{-15}$.
+   * Reconstructs transformed ray origins $\vec{r}'$ directly from the transformed spinor incidence pair $(\omega'^A, \pi'_{A'})$ without Z-buffers or Euler angle singularities (full Jacobian rank 3 at pitch $= \pi/2$).
+
+2. **Non-Vacuous Cech 1-Cocycle & Pole-Centered Penrose Transform (`twistor/cohomology_penrose.py`)**
+   * Evaluates $\mathcal{O}(-2)$-homogeneous elementary states $f(Z) = \frac{1}{(A_\alpha Z^\alpha)(B_\beta Z^\beta)}$ over adaptive pole-centered contours on $\mathbb{CP}^1$, solving the 4D massless wave equation $\square \phi(x) = 0$ to $1.99 \times 10^{-17}$.
+   * Provides chart-independent Fubini-Study chordal pole separation `cp1_chordal_pole_distance` on $\mathbb{CP}^1$ (valid even when a pole lies at $\zeta = \infty$) and explicit `contour_mode` validation.
+
+3. **Spinor Transverse Projectors, Angular IRLS RANSAC, & Conformal Harmonics (`twistor/geometry.py`, `twistor/harmonics.py`, `twistor/bvh.py`)**
+   * Proves exact algebraic equivalence between spinor transverse distance $\|\mathbf{D}\pi\|^2 - |\pi^\dagger \mathbf{D}\pi|^2$ and Euclidean point-to-ray distance ($5.39 \times 10^{-16}$).
+   * Polishes multi-ray intersections via Iteratively Reweighted Least Squares (`_angular_irls_polish`) weighted by $w_i = 1 / \|\hat{p} - o_i\|^2$ to minimize the exact angular $\sin^2\theta_i$ objective ($9.06 \times 10^{-16}\text{ m}$).
+   * Evaluates spinor bilinear eigenmodes $Y_{\ell,m}(\pi)$ matching exact Laplace-Beltrami eigenvalues $\ell(\ell+1)$ ($1.51 \times 10^{-14}$) alongside recursive AABB BVH ray-bundle culling ($89.9\%$ pruned).
+
+---
+
+## Verified Audit Suite (26/26 Unit Tests Passing)
+
+| Test Module | Tests | Key Verified Identity & Measured Residual | Status |
+| :--- | :---: | :--- | :---: |
+| `test_audit_suite.py` | 4 / 4 | $\mathrm{SU}(2)$ rank 3 at $\theta=\pi/2$; 2-ray minimal error `1.09e-15 m`; RANSAC outlier rejection `9.06e-16 m` | **PASS** |
+| `test_cohomology_penrose_audit.py` | 6 / 6 | $\mathcal{O}(-2)$ homogeneity `1.62e-15`; wide-domain $[-10,10]^4$ pole-centered contour `6.03e-15`; Čech coboundary `5.59e-17` | **PASS** |
+| `test_full_penrose_stack.py` | 5 / 5 | Lorentz boost covariance `4.85e-16`; Klein quadric intersection `6.28e-16`; Forward Tube $\mathcal{M}^+$ splitting; $\square \phi = 0$ `2.43e-17` | **PASS** |
+| `test_harmonics_audit.py` | 4 / 4 | Spinor $Y_{\ell,m}(\pi)$ vs SciPy `5.75e-16`; Autograd PDE residual `1.51e-14`; $L^2(\mathbb{CP}^1)$ orthonormality `3.33e-15` | **PASS** |
+| `test_renderer_bvh_audit.py` | 7 / 7 | 15-param $\mathrm{SU}(2,2)$ closure `3.97e-15`; identity origin `6.28e-16`; 15-param ray-line convergence `2.31e-15`; BVH `89.9%` pruned | **PASS** |
+
+---
+
+## Quick Start
+
+    # Run all 26 Twistor-Render-Core unit tests
+    python -m unittest discover -s tests -p "test_*.py" -v
+
+    # Run the cross-repository verification suite (Twistor 26 tests + Shield Benchmark + Shield 11 tests)
+    .\Run-Audits.ps1
