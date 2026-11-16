@@ -219,7 +219,7 @@ class TestRendererAndBVHRemediation(unittest.TestCase):
         )).item()
 
         # Verify every ray line passes through r' at parameter lambda = t'
-        ray_pts_at_t_prime = orig_15 + t_prime * dirs_15
+        ray_pts_at_t_prime = orig_15 - t_prime * dirs_15
         line_pass_err = torch.max(torch.linalg.norm(ray_pts_at_t_prime - r_prime.unsqueeze(0), dim=-1)).item()
 
         print(f"  -> [RENDERER AUDIT 7] Identity Origin Err: {id_origin_err:.2e} | 15-Param Incidence Defect: {inc_defect_15:.2e} | Ray-Line to r' Dist: {line_pass_err:.2e}")
