@@ -5,6 +5,8 @@ strict Penrose incidence preservation at zero and non-zero origins, and ray-orde
 """
 
 import torch
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from palatial_gpo_ray_optics import (
     SIGMA_5,
     CP4_CASIMIR_SPECTRUM,
@@ -104,3 +106,4 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             fn()
             print(f"[PASS] {name}")
+
