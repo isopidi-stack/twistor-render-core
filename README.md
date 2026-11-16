@@ -1,6 +1,6 @@
-﻿# Twistor Render Core (`v6.0.0-argon-cp4`)
+﻿# Twistor Render Core (v6.1.0-argon-fortress)
 
-A polygon-free, Z-buffer-free volumetric and spinor ray-optics engine built on five-component projective twistor geometry ($\mathbb{CP}^4$) and parallelized volumetric ray-marching.
+A polygon-free, Z-buffer-free volumetric and spinor ray-optics engine built on five-component projective twistor geometry ($\mathbb{CP}^4$), 4D Minkowski Infeld-van der Waerden spinor incidence, and analytical error-function ($\operatorname{erf}$) radiative transfer.
 
 ---
 
@@ -12,20 +12,27 @@ A polygon-free, Z-buffer-free volumetric and spinor ray-optics engine built on f
 
 ---
 
-## Mathematical Architecture (`v6.0` Argon Audit Verified)
+## Mathematical Architecture (v6.1 Adversarial Fortress Verified)
 
-### 1. Five-Component Projective State ($\mathbb{CP}^4$) & Indefinite Metric
-States are represented as homogeneous 5-tuples modulo $\mathbb{C}^\times$ scaling:
-$$Z_5 = (\omega^0, \omega^1, \pi_{0'}, \pi_{1'}, \phi) \in \mathbb{CP}^4$$
-endowed with the indefinite Hermitian form $\Sigma_5$ of signature $(3,2)$:
-$$\Sigma_5 = \begin{pmatrix} 0 & I_2 & 0 \\ I_2 & 0 & 0 \\ 0 & 0 & 1 \end{pmatrix}, \quad \operatorname{spec}(\Sigma_5) = \{1, 1, 1, -1, -1\}$$
+### 1. 4D Minkowski Spinor Mapping & Scaled Penrose Incidence ($\mathbb{CP}^4$)
+Spacetime events $x^\mu = (x^0, \mathbf{x}) \in \mathbb{M}^4$ map to $2 \times 2$ Hermitian matrices via the Infeld-van der Waerden symbols:
+$$X^{AA'} = x^0 I_2 + \mathbf{x} \cdot \boldsymbol{\sigma}, \quad \det(X^{AA'}) = (x^0)^2 - \|\mathbf{x}\|^2$$
+With characteristic length scale $L_0 > 0$, the dimensionally homogeneous 5-twistor state $Z_5 = (\omega^0, \omega^1, \pi_{0'}, \pi_{1'}, \phi) \in \mathbb{CP}^4$ satisfies the scaled Penrose incidence relation:
+$$\omega^A = \frac{i}{L_0} X^{AA'} \pi_{A'}$$
+Under any real Poincare translation $X \mapsto X + A$ ($A^\dagger = A$), the indefinite $\Sigma_5$ quadratic form of signature $(3,2)$ is strictly invariant:
+$$Z_5^\dagger \Sigma_5 Z_5 = \omega^\dagger \pi + \pi^\dagger \omega + |\phi|^2 = |\phi|^2$$
 
-### 2. Exact GPO Orthogonal Projector Partition & $\mathbb{CP}^4$ Spectrum
-The Green, Purple, and Orange channels form a complete resolution of the identity on $\mathbb{C}^5$:
-$$P_G + P_P + P_O = I_5, \quad c_G + c_P + c_O = 1 \quad (c_j = Z_5^\dagger P_j Z_5)$$
-Under the standard Fubini–Study metric normalization (holomorphic sectional curvature $4$), the scalar Laplacian spectrum on $\mathbb{CP}^4$ follows:
-$$\lambda_\ell = 4\ell(\ell + 4) \implies \{0, 20, 48\} \quad (\ell = 0, 1, 2)$$
+### 2. GPO Projector Triad & Active $\mathbb{CP}^4$ Spectral Filter Operator ($H_{\text{GPO}}$)
+The orthogonal projectors $P_G, P_P, P_O$ resolve the identity on $\mathbb{C}^5$ ($P_G + P_P + P_O = I_5$) and define the $5 \times 5$ Hermitian spectral filter weighted by the first three $\mathbb{CP}^4$ Fubini-Study Laplacian eigenvalues ($\lambda_\ell = 4\ell(\ell+4) \in \{0, 20, 48\}$):
+$$H_{\text{GPO}} = 0 \cdot P_G + 20 \cdot P_P + 48 \cdot P_O, \quad \langle H_{\text{GPO}} \rangle_{[Z_5]} = \frac{Z_5^\dagger H_{\text{GPO}} Z_5}{Z_5^\dagger Z_5} \in [0, 48]$$
 
-### 3. Strict Penrose Incidence & Analytical Ray-Ordered Occlusion
-* **Physical Incidence Separation:** `palatial_gpo_ray_optics.py` computes and preserves the exact physical incidence spinor $\omega^A = i X^{AA'} \pi_{A'}$ in `Z5_physical` (satisfying $\omega_{\mathrm{cam}} = 0$ at the spatial origin), keeping screen-space diagnostic HUD phase modulation strictly separate in `Z5_hud_diagnostic`.
-* **Analytical Front-to-Back Transmittance:** Primitives along each camera ray are ordered by their longitudinal projection $s_k = \mathbf{d}_k \cdot \mathbf{n}$ and integrated via Beer–Lambert transmittance $T_k = \prod_{j < k} (1 - \alpha_j)$, achieving true depth occlusion without a raster Z-buffer grid.
+### 3. Continuous Analytical $\operatorname{erf}()$ Volumetric Radiative Transfer
+Co-linear 3D Gaussian primitives along each camera ray are integrated via the exact line-integral error-function overlap matrix:
+$$\Phi_{jk} = \frac{1}{2}\left[1 + \operatorname{erf}\left(\frac{s_k - s_j}{2\sigma}\right)\right] \quad (j \neq k), \quad T_k = \exp\left(-\sum_{j \neq k} \Phi_{jk} \tau_j\right)$$
+guaranteeing smooth depth occlusion without a raster Z-buffer and eliminating discrete center-sorting jump artifacts when volumes interpenetrate ($s_j = s_k \implies \Phi_{jk} = \frac{1}{2}$).
+
+---
+
+## Standalone Verification
+
+    python tests\test_cohomology_penrose_audit.py
