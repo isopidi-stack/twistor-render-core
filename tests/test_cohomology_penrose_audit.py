@@ -5,7 +5,6 @@ strict Penrose incidence preservation at zero and non-zero origins, and ray-orde
 """
 
 import torch
-import pytest
 from palatial_gpo_ray_optics import (
     SIGMA_5,
     CP4_CASIMIR_SPECTRUM,
@@ -97,3 +96,11 @@ def test_hud_preserves_physical_incidence_and_occludes_depth():
     assert weights[0] > 0.90  # Near object receives full unoccluded transmittance
     assert weights[1] < 0.05  # Far object is attenuated by (1 - 0.95) = 0.05
     assert out["visible_depth"][0] < 2.5
+
+if __name__ == "__main__":
+    import sys, os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    for name, fn in sorted( list(globals().items()) ):
+        if name.startswith("test_") and callable(fn):
+            fn()
+            print(f"[PASS] {name}")
