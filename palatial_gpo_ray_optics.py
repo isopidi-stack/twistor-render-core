@@ -100,7 +100,7 @@ def spatial_to_hermitian(x_vec: torch.Tensor, t_coord: Optional[torch.Tensor] = 
     x_c = x_vec.to(torch.complex128)
     if x_c.shape[-1] == 4:
         pauli4 = PAULI_4D.to(x_vec.device)
-        return torch.einsum("...mu,muij->...ij", x_c, pauli4)
+        return torch.einsum("...m,mij->...ij", x_c, pauli4)
 
     pauli3 = PAULI_VEC.to(x_vec.device)
     X_spatial = torch.einsum("...k,kij->...ij", x_c, pauli3)
@@ -279,3 +279,4 @@ def render_gpo_hud_frame(
         "visible_depth": visible_depth,
         "primitive_weights": weights_k
     }
+
