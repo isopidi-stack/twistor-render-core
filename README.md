@@ -6,9 +6,11 @@ A polygon-free, Z-buffer-free volumetric and spinor ray-optics engine built on f
 
 ## Visual Proof Suite
 
-| Twistor Null-Cone Caustic Slice | Luminous $\mathbb{CP}^3/\mathbb{CP}^4$ Nebula | Standing Wave Harmonic Field |
-| :---: | :---: | :---: |
-| ![Twistor Slice](twistor_proof.gif) | ![Twistor Cloud](twistor_cloud_proof.gif) | ![Twistor Wave](twistor_wave_proof.gif) |
+| True $\mathbb{CP}^4$ Spinor & $\operatorname{erf}()$ HUD | Twistor Null-Cone Caustic Slice | Luminous $\mathbb{CP}^3/\mathbb{CP}^4$ Nebula | Standing Wave Harmonic Field |
+| :---: | :---: | :---: | :---: |
+| ![GPO Spinor HUD](twistor_gpo_hud_proof.gif) | ![Twistor Slice](twistor_proof.gif) | ![Twistor Cloud](twistor_cloud_proof.gif) | ![Twistor Wave](twistor_wave_proof.gif) |
+
+*The first proof (`twistor_gpo_hud_proof.gif`) is rendered directly from `palatial_gpo_ray_optics.py` (`render_gpo_spinor_gif.py`) using exact 2-spinor Bloch ray bundles $\pi_{A'}$, scaled Minkowski Penrose incidence $\omega^A = \frac{i}{L_0} X^{AA'} \pi_{A'}$, GPO projector probabilities $(c_G, c_P, c_O)$, and continuous $\operatorname{erf}()$ radiative transfer with zero incidence defect.*
 
 ---
 
@@ -33,6 +35,6 @@ guaranteeing smooth depth occlusion without a raster Z-buffer and eliminating di
 
 ---
 
-## Standalone Verification
+## Standalone Verification & Spinor GIF Reproduction
 
     python tests\test_cohomology_penrose_audit.py
