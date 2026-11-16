@@ -1,21 +1,14 @@
-﻿MIT License
+﻿PROJECT ARGON SOURCE-AVAILABLE RESEARCH & EVALUATION LICENSE
+Copyright (c) 2026 Ivan Nikolayevich Sopidi (isopidi-stack). All Rights Reserved.
 
-Copyright (c) 2026 isopidi-stack
+1. GRANT OF NON-COMMERCIAL EVALUATION LICENSE
+Permission is hereby granted, free of charge, to any person or academic institution obtaining a copy of this software, mathematical formulation, and associated documentation files (the "Software"), to view, execute, audit, and evaluate the Software solely for personal, academic, or non-commercial research purposes, subject to the following conditions:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+  a) The above copyright notice, author attribution, and this permission notice shall be included in all copies or substantial portions of the Software.
+  b) Any public academic, technical, or benchmark publication referencing or utilizing the Software must provide explicit attribution to the original author and repository.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. COMMERCIAL RESTRICTION (ALL COMMERCIAL RIGHTS RESERVED)
+You may NOT use, copy, modify, merge, publish, distribute, sublicense, or sell the Software, or any derivative works thereof, for any commercial, enterprise, defense, simulation, or revenue-generating purpose, nor offer the Software as a hosted or managed service, without a separate written commercial license agreement executed by the copyright holder.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. NO WARRANTY
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
