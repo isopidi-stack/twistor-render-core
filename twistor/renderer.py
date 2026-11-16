@@ -7,7 +7,8 @@ from twistor.harmonics import PenroseTwistorHarmonicEngine
 class TwistorRenderer:
     """
     Implements the full 15-parameter Conformal Twistor Group SU(2,2) action via exact
-    fractional linear transformations on Hermitian spacetime matrices X' = (AX - iB)(iCX + D)^{-1}.
+    fractional linear transformations on Hermitian spacetime matrices X' = (AX - iB)(iCX + D)^{-1}
+    and consistent t = 0 hyperplane ray-origin reconstruction.
     """
     def __init__(self, width: int = 64, height: int = 64, fov_deg: float = 60.0, device=None):
         self.device = device or torch.device("cpu")
@@ -42,7 +43,13 @@ class TwistorRenderer:
         return K @ D @ P
 
     @staticmethod
-    def transform_spacetime_event_su22(G: torch.Tensor, X_cam: torch.Tensor) -> torch.Tensor:
+    def transform_spacetime_event_su22(G: torch.Tensor, X_cam: torch.Tensor, min_sv_tol: float = 1e-10) -> torch.Tensor:
+        """
+        Evaluates exact conformal fractional linear transformation:
+            X' = (A X - iB) (iC X + D)^{-1}
+        Checks denominator conditioning via minimum singular value to guard against
+        conformal infinity singularities det(iC X + D) == 0.
+        """
         A = G[0:2, 0:2]
         B = G[0:2, 2:4]
         C = G[2:4, 0:2]
@@ -51,24 +58,33 @@ class TwistorRenderer:
         if X_cam.ndim == 2:
             num = A @ X_cam - 1j * B
             den = 1j * C @ X_cam + D
-            return num @ torch.linalg.inv(den)
         else:
             num = torch.einsum("ab,mbc->mac", A, X_cam) - 1j * B.unsqueeze(0)
             den = 1j * torch.einsum("ab,mbc->mac", C, X_cam) + D.unsqueeze(0)
-            return num @ torch.linalg.inv(den)
+
+        sv = torch.linalg.svdvals(den)
+        if torch.any(sv[..., -1] < min_sv_tol):
+            raise ValueError("Singular conformal transformation: denominator (iC X + D) is ill-conditioned or non-invertible.")
+
+        return num @ torch.linalg.inv(den)
 
     @staticmethod
     def reconstruct_ray_origins_from_twistors(Z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Reconstructs the unique t = 0 hyperplane intersection X_rec of each null twistor line Z = (omega, pi).
+        Because X_rec = XP + PX - (pi^dagger X pi)I has trace(X_rec) == 0 identically, X_rec represents
+        the spatial event on the t = 0 slice: o_ray = r' - t' n', satisfying omega = i X_rec pi exactly.
+        """
         omega = Z[:, 0:2]
         pi = Z[:, 2:4]
-        
+
         pi_norm = torch.linalg.norm(pi, dim=-1, keepdim=True).clamp(min=1e-12)
         pi_unit = pi / pi_norm
         omega_unit = omega / pi_norm
         Z_norm = torch.cat([omega_unit, pi_unit], dim=-1)
 
         pi_dag_omega = torch.sum(torch.conj(pi_unit) * omega_unit, dim=-1, keepdim=True)
-        tau = -pi_dag_omega.imag  # FIXED: negative sign for correct temporal gauge shift tau = -Im(pi^\dagger omega)
+        tau = -pi_dag_omega.imag
 
         term1 = torch.einsum("mi,mj->mij", omega_unit, torch.conj(pi_unit))
         term2 = torch.einsum("mi,mj->mij", pi_unit, torch.conj(omega_unit))
@@ -82,18 +98,12 @@ class TwistorRenderer:
         X10 = X_herm[:, 1, 0]
         X11 = X_herm[:, 1, 1]
 
-        t_val = 0.5 * (X00 + X11).real
         z_val = 0.5 * (X00 - X11).real
         x_val = 0.5 * (X01 + X10).real
-        y_val = 0.5 * (X10 - X01).imag  # FIXED: removed 1j so .imag correctly extracts spatial y
+        y_val = 0.5 * (X10 - X01).imag
 
-        x4 = torch.stack([t_val, x_val, y_val, z_val], dim=-1)
-        t_event = x4[:, 0:1]
-        xyz_event = x4[:, 1:4]
-        ray_dirs = PenroseTwistorHarmonicEngine.spinor_to_unit_ray(pi_unit)
-
-        ray_origins_3d = xyz_event - t_event * ray_dirs
-        return ray_origins_3d, X_herm, Z_norm  # Returns unit-normalized Z_norm contract
+        ray_origins_3d = torch.stack([x_val, y_val, z_val], dim=-1)
+        return ray_origins_3d, X_herm, Z_norm
 
     @staticmethod
     def lift_points_to_null_cone_twistors(pts_3d: torch.Tensor, camera_center: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -185,8 +195,9 @@ class TwistorRenderer:
         pi = PenroseTwistorHarmonicEngine.points_to_celestial_spinors(dirs_local)
 
         if camera_center is not None:
-            dist_c = torch.norm(camera_center).to(dtype=dtype, device=self.device)
-            cam_4d = torch.cat([dist_c.unsqueeze(0), camera_center], dim=0)
+            # Anchor initial camera event on the t = 0 spatial hypersurface: X_cam = (0, c)
+            zero_t = torch.zeros(1, dtype=dtype, device=self.device)
+            cam_4d = torch.cat([zero_t, camera_center.to(dtype=dtype, device=self.device)], dim=0)
             X_cam = PenroseTwistorCore.spacetime_to_hermitian(cam_4d)
             omega = 1j * torch.einsum("ab,mb->ma", X_cam, pi)
         else:

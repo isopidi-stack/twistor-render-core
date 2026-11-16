@@ -167,5 +167,67 @@ class TestRendererAndBVHRemediation(unittest.TestCase):
         self.assertGreater(diff_dil, 0.01)
         self.assertGreater(diff_sc,  0.01)
 
+
+    def test_7_identity_origin_and_15param_ray_line_convergence(self):
+        """
+        Addresses the November 16, 2026 Audit Findings (P0 & P1):
+          1. Identity transformation check: for camera_center = (1, 2, 3), every reconstructed
+             ray origin on the t = 0 slice equals (1, 2, 3) to machine precision (< 1e-15).
+          2. Full 15-parameter SU(2,2) check: verifies exact Hermiticity of X', exact incidence
+             ||omega' - i X_ray pi'|| < 1e-14, and proves that every reconstructed spatial ray
+             line o_ray + lambda * n' passes directly through the transformed camera position r'
+             at lambda = t' (distance < 1e-14).
+        """
+        renderer = TwistorRenderer(width=6, height=6, fov_deg=60.0)
+        cam_id = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float64)
+
+        # 1. Identity transformation reconstruction check
+        _, _, orig_id, X_id, Z_id = renderer.generate_camera_rays(camera_center=cam_id, return_ray_origins=True)
+        id_origin_err = torch.max(torch.linalg.norm(orig_id - cam_id.unsqueeze(0), dim=-1)).item()
+        id_inc_err = torch.max(torch.linalg.norm(
+            Z_id[:, 0:2] - 1j * torch.einsum("mab,mb->ma", X_id, Z_id[:, 2:4]), dim=-1
+        )).item()
+
+        # 2. Combined 15-parameter transformation check
+        t3 = torch.tensor([0.12, -0.18, 0.09], dtype=torch.float64)
+        b3 = torch.tensor([0.06, -0.08, 0.05], dtype=torch.float64)
+        tr4 = torch.tensor([0.25, -0.30, 0.45, -0.20], dtype=torch.float64)
+        sc4 = torch.tensor([0.04, -0.06, 0.05, -0.03], dtype=torch.float64)
+        lam = 0.25
+
+        cam_4d = torch.cat([torch.zeros(1, dtype=torch.float64), cam_id], dim=0)
+        X_cam = PenroseTwistorCore.spacetime_to_hermitian(cam_4d)
+        G_15 = renderer.build_full_15param_su22_matrix(t3, b3, tr4, sc4, dilation_lambda=lam)
+        X_prime = renderer.transform_spacetime_event_su22(G_15, X_cam)
+
+        herm_err = torch.max(torch.abs(X_prime - torch.conj(X_prime.mT))).item()
+        t_prime = 0.5 * (X_prime[0, 0] + X_prime[1, 1]).real
+        r_prime = torch.stack([
+            0.5 * (X_prime[0, 1] + X_prime[1, 0]).real,
+            0.5 * (X_prime[1, 0] - X_prime[0, 1]).imag,
+            0.5 * (X_prime[0, 0] - X_prime[1, 1]).real,
+        ], dim=0)
+
+        pi_15, dirs_15, orig_15, X_ray_15, Z_15 = renderer.generate_camera_rays(
+            theta_3d=t3, boost_3d=b3, trans_4d=tr4, special_conformal_4d=sc4,
+            dilation_lambda=lam, camera_center=cam_id, return_ray_origins=True
+        )
+
+        # Verify incidence ||omega' - i X_ray pi'|| < 1e-14
+        inc_defect_15 = torch.max(torch.linalg.norm(
+            Z_15[:, 0:2] - 1j * torch.einsum("mab,mb->ma", X_ray_15, Z_15[:, 2:4]), dim=-1
+        )).item()
+
+        # Verify every ray line passes through r' at parameter lambda = t'
+        ray_pts_at_t_prime = orig_15 + t_prime * dirs_15
+        line_pass_err = torch.max(torch.linalg.norm(ray_pts_at_t_prime - r_prime.unsqueeze(0), dim=-1)).item()
+
+        print(f"  -> [RENDERER AUDIT 7] Identity Origin Err: {id_origin_err:.2e} | 15-Param Incidence Defect: {inc_defect_15:.2e} | Ray-Line to r' Dist: {line_pass_err:.2e}")
+        self.assertLess(id_origin_err, 1e-14)
+        self.assertLess(id_inc_err, 1e-14)
+        self.assertLess(herm_err, 1e-14)
+        self.assertLess(inc_defect_15, 1e-14)
+        self.assertLess(line_pass_err, 1e-14)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
