@@ -48,6 +48,31 @@ class TestPalatialGPORayOptics(unittest.TestCase):
         self.assertLess(orange_err, 1e-15)
         print(f"  -> [ARGON RAY 3] Equatorial Ground Truth | Green: {1.0 - green_err:.6f} | Purple: {purple_err:.2e} | Orange: {orange_err:.2e}")
 
+    def test_4_primary_gpo_hud_render_pass_without_zbuffer(self):
+        """Verifies primary HUD rendering pass produces exact (H, W, 3) GPO frames with 1e-15 triad unity."""
+        centers = torch.tensor(
+            [[0.0, 0.0, 3.0], [-0.6, 0.4, 4.0], [0.5, -0.3, 2.5]],
+            dtype=torch.float64,
+        )
+        weights = torch.tensor([1.2, 0.9, 1.5], dtype=torch.float64)
+        res = PalatialGPORayOptics.render_gpo_hud_frame(
+            height=32,
+            width=48,
+            field_centers=centers,
+            harmonic_weights=weights,
+            sigma_aperture=0.18,
+        )
+        self.assertEqual(tuple(res["hud_frame"].shape), (32, 48, 3))
+        triad_err = float(torch.max(torch.abs(res["triad_sum"] - 1.0)).item())
+        self.assertLess(triad_err, 1e-15)
+        self.assertGreater(float(torch.max(res["c_purple"]).item()), 0.05)
+        self.assertGreater(float(torch.max(res["c_orange"]).item()), 0.01)
+        print(
+            f"  -> [ARGON RAY 4] HUD Frame {tuple(res['hud_frame'].shape)} | "
+            f"Triad Err: {triad_err:.2e} | Peak (G,P,O): "
+            f"({float(torch.max(res['c_green'])):.3f}, {float(torch.max(res['c_purple'])):.3f}, {float(torch.max(res['c_orange'])):.3f})"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
