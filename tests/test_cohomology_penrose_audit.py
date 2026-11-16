@@ -24,6 +24,9 @@ from palatial_gpo_ray_optics import (
     compute_penrose_incidence_state,
     apply_spacetime_translation,
     render_gpo_hud_frame,
+    compute_sigma5_freedom_matrix,
+    build_five_quantum_twistor_state,
+    apply_cartan_local_twistor_transport,
 )
 
 
@@ -127,8 +130,42 @@ def test_hud_erf_continuous_occlusion_and_concentric_symmetry():
     assert torch.allclose(w_conc[0], w_conc[1], atol=1e-12)
 
 
+def test_penrose_five_quantum_rules_and_25_sigma5_freedoms():
+    """
+    Verifies the 5-Quantum-Number Dual-Spinor (omega^A, pi_{A'}) & 25-Element SIGMA_5 Postulate
+    and unitary Cartan local twistor transport inside twistor-render-core.
+    """
+    assert SIGMA_5.numel() == 25
+    n = torch.tensor([1.0, 2.0], dtype=torch.float64)
+    l = torch.tensor([0.0, 1.0], dtype=torch.float64)
+    m = torch.tensor([0.0, 0.0], dtype=torch.float64)
+    s_omega = torch.tensor([0.5, 0.5], dtype=torch.float64)
+    s_pi = torch.tensor([0.5, -0.5], dtype=torch.float64)
+
+    res = build_five_quantum_twistor_state(n, l, m, s_omega, s_pi)
+    assert res["freedom_matrix_25"].shape == (2, 5, 5)
+    assert res["freedom_matrix_25"][0].numel() == 25
+    # Trace of the 25-element freedom matrix must identically equal the Sigma_5 quadratic norm
+    tr_25 = torch.einsum("...ii->...", res["freedom_matrix_25"]).real
+    assert torch.allclose(tr_25, res["sigma5_norm_complete"], atol=1e-12)
+    assert torch.all(torch.abs(res["core_electron_spinor_coupling"]) > 1.5)
+
+    # Verify unitary Cartan local twistor transport + Googly chiral coupling
+    H_curv = torch.zeros(2, 5, 5, dtype=torch.complex128)
+    t_out = apply_cartan_local_twistor_transport(
+        res["Z5_complete"],
+        H_curv,
+        epsilon_googly=0.05,
+        Z5_chiral_partner=res["Z5_complete"].conj()
+    )
+    I5 = torch.eye(5, dtype=torch.complex128).unsqueeze(0).expand(2, 5, 5)
+    U = t_out["U_transport"]
+    assert torch.allclose(torch.matmul(U, U.conj().transpose(-1, -2)), I5, atol=1e-12)
+
+
 if __name__ == "__main__":
     for name, fn in sorted(list(globals().items())):
         if name.startswith("test_") and callable(fn):
             fn()
             print(f"[PASS] {name}")
+
