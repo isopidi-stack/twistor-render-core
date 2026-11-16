@@ -23,10 +23,10 @@ class TwistorBVH:
     """
     Genuine Recursive Axis-Aligned Bounding Box (AABB) Bounding Volume Hierarchy:
       - Recursively partitions 3D points along the longest AABB axis at the spatial median.
-      - Expands each node AABB by the Gaussian cutoff pad (cutoff_radius = 4 * sigma) so
-        any ray intersecting a point's Gaussian support is guaranteed to intersect the AABB.
-      - Uses the Kay-Kajiya slab method to cull entire subtrees that miss the active ray bundle.
-      - Uses the exact same intensity model as TwistorRenderer.render.
+      - Expands each node AABB by the configurable Gaussian cutoff pad (pad = cutoff_mult * sigma, default 4.5 * sigma)
+        so any ray within cutoff_mult * sigma of a point is guaranteed to intersect the padded AABB.
+      - Uses the Kay-Kajiya slab method to cull subtrees and evaluates the Gaussian intensity model
+        truncated at r_perp <= cutoff_mult * sigma (tail weight < 4e-5 at 4.5*sigma, < 3e-7 at 5.5*sigma).
     """
     def __init__(self, pts_3d: torch.Tensor, leaf_size: int = 16, sigma: float = 0.15, cutoff_mult: float = 4.5):
         self.pts_3d = pts_3d
