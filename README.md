@@ -82,3 +82,15 @@ guaranteeing smooth depth occlusion without a raster Z-buffer and eliminating di
 ## Standalone Verification & Spinor GIF Reproduction
 
     python tests\test_cohomology_penrose_audit.py
+
+---
+
+## Final Synthesis: The 25-Element $\Sigma_5$ Dual-Spinor Freedom Proof
+
+![25-Element SIGMA_5 Freedom Matrix Proof](sigma5_25_freedoms_proof.gif)
+
+**How We Arrived Here:**
+1. **Identifying the Missing Spinor ($\pi_{A'}$):** Standard 4-quantum-number atomic notation $(n, l, m_l, m_s)$ accounts only for the first Weyl spinor ($\omega^A$, electron sector) while omitting the conjugate second Weyl spinor ($\pi_{A'}$, nuclear core spin-momentum coupling).
+2. **Full $\mathbb{C}^5$ Twistor Embedding:** Pairing both Weyl spinors with the 5th shell invariant $\phi$ inside the 5-component twistor $Z_5 = (\omega^0, \omega^1, \pi_{0'}, \pi_{1'}, \phi) \in \mathbb{C}^5$ under the $5 \times 5$ indefinite Hermitian metric $\Sigma_5$ generates the **25-element system freedom operator** $M^\alpha{}_\beta = Z^\alpha (\Sigma_5 Z)_\beta^*$.
+3. **Visual & Analytical Verification:** As shown above, when both $\omega^A$ and $\pi_{A'}$ precess together (left $5 \times 5$ panel), all 25 matrix freedoms and off-diagonal spinor couplings ($\omega^\dagger \pi + \pi^\dagger \omega$) are active and trace-invariant ($\mathrm{Tr}(M) = Z_5^\dagger \Sigma_5 Z_5$). Setting $\pi_{A'} = 0$ (right $5 \times 5$ panel) extinguishes 20 of the 25 freedoms and collapses the off-diagonal spinor coupling to zero.
+
