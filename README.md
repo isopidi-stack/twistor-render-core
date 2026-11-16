@@ -14,6 +14,42 @@ A polygon-free, Z-buffer-free volumetric and spinor ray-optics engine built on f
 
 ---
 
+## The Sir Roger Penrose Postulates (Permanent Visual Reference Boards)
+
+### Postulate I: The Five Quantum Number Rule (Spinor-Twistor Completeness)
+Standard four-number quantum notation $(n, l, m_l, m_s)$ compresses spinor geometry into a single scalar spin projection. A complete geometric state requires **five** fundamental parameters mapped onto projective twistor space:
+
+![Penrose Postulate I - Five Quantum Rules](penrose_postulates/penrose_postulate_1_five_quantum_rules.png)
+
+---
+
+### Postulate II: The Missing $\pi_{A'}$ Second Spinor Sector
+Official four-number notation accounts only for the first Weyl spinor ($\omega^A$, associated with the electron configuration) while omitting the conjugate second Weyl spinor ($\pi_{A'}$, encoding the nuclear core spin-momentum coupling):
+
+![Penrose Postulate II - Missing Second Spinor](penrose_postulates/penrose_postulate_2_missing_pi_spinor.png)
+
+---
+
+### Postulate III: Sir Roger Penrose's Dual Weyl Spinor Decomposition ($Z^\alpha$)
+As formulated by Sir Roger Penrose, an element of twistor space $\mathbb{T}$ is fundamentally a pair of two-component Weyl spinors—one unprimed left-handed spinor $\omega^A$ ($A = 0, 1$) and one primed right-handed conjugate spinor $\pi_{A'}$ ($A' = 0', 1'$):
+
+$$Z^\alpha = \begin{pmatrix} \omega^A \\ \pi_{A'} \end{pmatrix}, \quad Z_5 = (\omega^0, \omega^1, \pi_{0'}, \pi_{1'}, \phi) \in \mathbb{C}^5$$
+
+![Penrose Postulate III - Dual Weyl Spinors](penrose_postulates/penrose_postulate_3_dual_weyl_twistor.png)
+
+---
+
+### Postulate IV: The 25-Element $\Sigma_5$ System Freedom Matrix
+Embedding the two Weyl spinors $(\omega^A, \pi_{A'})$ alongside the 5th shell invariant $\phi$ into $\mathbb{C}^5$ governed by the $5 \times 5$ indefinite Hermitian metric $\Sigma_5$ yields **25 coupled matrix degrees of freedom** ($5 \times 5 = 25$ total elements):
+
+$$\Sigma_5 = \begin{pmatrix} 0 & 0 & 1 & 0 & 0 \\ 0 & 0 & 0 & 1 & 0 \\ 1 & 0 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & 1 \end{pmatrix}, \quad Z_5^\dagger \Sigma_5 Z_5 = \omega^\dagger \pi + \pi^\dagger \omega + |\phi|^2$$
+
+When the second spinor $\pi_{A'}$ is omitted ($\pi_{A'} = 0$), the off-diagonal spinor coupling $\omega^\dagger \pi + \pi^\dagger \omega$ collapses identically to zero.
+
+![Penrose Postulate IV - 25 System Freedoms in SIGMA_5](penrose_postulates/penrose_postulate_4_sigma5_25_freedoms.png)
+
+---
+
 ## Mathematical Architecture (v6.1 Adversarial Fortress Verified)
 
 ### 1. 4D Minkowski Spinor Mapping & Scaled Penrose Incidence ($\mathbb{CP}^4$)
