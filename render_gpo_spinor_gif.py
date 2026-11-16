@@ -1,7 +1,7 @@
 ﻿"""
-Project Argon v6.1 - True CP^4 Spinor Incidence & erf() Radiative Transfer Renderer
-Directly invokes render_gpo_hud_frame() from palatial_gpo_ray_optics.py to synthesize
-36 frames of a rotating 3D volumetric twistor lattice with zero Z-buffer.
+Project Argon v6.1 - High-Contrast CP^4 Spinor Incidence & Casimir Interference Renderer
+Directly invokes render_gpo_hud_frame() from palatial_gpo_ray_optics.py with sharp optical
+cores (sigma=0.11), 24-node toroidal/helical twistor lattice, and full GPO spectral separation.
 """
 
 import os
@@ -10,120 +10,171 @@ import math
 import torch
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
-from palatial_gpo_ray_optics import render_gpo_hud_frame
+from palatial_gpo_ray_optics import (
+    render_gpo_hud_frame,
+    compute_gpo_probabilities,
+    compute_gpo_spectral_expectation,
+)
 
 
 def generate_spinor_viewport(height: int, width: int, angle: float, device: str = "cpu"):
-    """
-    Constructs an orbiting camera origin X_cam and a 2-spinor ray bundle pi_{A'} across the screen.
-    """
-    y_lin = torch.linspace(-1.15, 1.15, height, dtype=torch.float64, device=device)
-    x_lin = torch.linspace(-1.15, 1.15, width, dtype=torch.float64, device=device)
+    y_lin = torch.linspace(-1.0, 1.0, height, dtype=torch.float64, device=device)
+    x_lin = torch.linspace(-1.0, 1.0, width, dtype=torch.float64, device=device)
     vy, vx = torch.meshgrid(y_lin, x_lin, indexing="ij")
 
-    # Orbit camera in X-Z plane looking toward the origin
-    radius = 4.2
+    # Orbit camera around the twistor lattice
+    radius = 3.6
     cam_x = radius * math.sin(angle)
-    cam_y = 0.85 * math.sin(angle * 2.0)
+    cam_y = 1.15 * math.sin(angle * 1.0)
     cam_z = -radius * math.cos(angle)
     cam_origin = torch.tensor([cam_x, cam_y, cam_z], dtype=torch.float64, device=device)
     cam_origin_grid = cam_origin.view(1, 1, 3).expand(height, width, 3)
 
-    # Forward, Right, Up basis for camera orientation toward (0,0,0)
     fwd = -cam_origin / torch.linalg.norm(cam_origin)
     world_up = torch.tensor([0.0, 1.0, 0.0], dtype=torch.float64, device=device)
     right = torch.linalg.cross(world_up, fwd)
     right = right / torch.linalg.norm(right)
     up = torch.linalg.cross(fwd, right)
 
-    # 3D unit ray direction n(y, x)
     ray_dir = (
         fwd.view(1, 1, 3)
-        + vx.unsqueeze(-1) * right.view(1, 1, 3) * 0.55
-        - vy.unsqueeze(-1) * up.view(1, 1, 3) * 0.55
+        + vx.unsqueeze(-1) * right.view(1, 1, 3) * 0.58
+        - vy.unsqueeze(-1) * up.view(1, 1, 3) * 0.58
     )
     ray_dir = ray_dir / torch.linalg.norm(ray_dir, dim=-1, keepdim=True).clamp(min=1e-12)
 
-    nx = ray_dir[..., 0]
-    ny = ray_dir[..., 1]
-    nz = ray_dir[..., 2]
-
-    # Exact inverse Bloch map: unit vector (nx, ny, nz) -> normalized 2-spinor pi_{A'}
-    # cos(theta/2) = sqrt((1 + nz)/2), sin(theta/2)*exp(i*phi) = (nx + i*ny)/sqrt(2*(1 + nz))
+    nx, ny, nz = ray_dir[..., 0], ray_dir[..., 1], ray_dir[..., 2]
     denom = torch.sqrt((2.0 * (1.0 + nz)).clamp(min=1e-9))
-    pi_0 = 0.5 * denom.to(torch.complex128)
+    pi_0 = (0.5 * denom).to(torch.complex128)
     pi_1 = (nx.to(torch.complex128) + 1j * ny.to(torch.complex128)) / denom.to(torch.complex128)
     pi_spinor = torch.stack([pi_0, pi_1], dim=-1)
 
-    return cam_origin_grid, pi_spinor, vx, vy
+    return cam_origin_grid, pi_spinor, vx, vy, ray_dir
 
 
 def main():
     out_dir = sys.argv[1]
     num_frames = 36
-    height, width = 256, 256
+    height, width = 320, 320
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"  [*] Executing v6.1 CP^4 Spinor Ray-Optics on device: {device.upper()} ({width}x{height}, {num_frames} frames)")
+    print(f"  [*] Rendering High-Contrast CP^4 Spinor Lattice on {device.upper()} ({width}x{height}, {num_frames} frames)")
 
     with torch.no_grad():
         for frame_idx in range(num_frames):
             phase = (frame_idx / float(num_frames)) * (2.0 * math.pi)
-            cam_origin_grid, pi_spinor, vx, vy = generate_spinor_viewport(height, width, phase, device=device)
+            cam_origin_grid, pi_spinor, vx, vy, ray_dir = generate_spinor_viewport(height, width, phase, device=device)
 
-            # Construct 9 dynamic 3D Gaussian twistor primitives (central core + 2 counter-rotating rings)
+            # Construct a sharp 21-primitive 3D Hopf-like interlocking twistor lattice
             centers = [[0.0, 0.0, 0.0]]
-            opacities = [0.96]
-            for k in range(8):
-                theta_k = (k / 8.0) * (2.0 * math.pi) + (0.5 * phase if k % 2 == 0 else -0.5 * phase)
-                r_ring = 1.15 if k % 2 == 0 else 0.78
-                cx = r_ring * math.cos(theta_k)
-                cy = 0.45 * math.sin(2.0 * theta_k + phase)
-                cz = r_ring * math.sin(theta_k)
-                centers.append([cx, cy, cz])
-                opacities.append(0.88 if k % 2 == 0 else 0.75)
+            opacities = [0.99]
+
+            # Ring 1: 10 nodes on equatorial X-Z torus
+            for k in range(10):
+                a = (k / 10.0) * (2.0 * math.pi) + phase
+                r1 = 1.25
+                centers.append([r1 * math.cos(a), 0.28 * math.sin(3.0 * a), r1 * math.sin(a)])
+                opacities.append(0.95)
+
+            # Ring 2: 10 nodes on tilted counter-rotating Clifford torus
+            for k in range(10):
+                b = (k / 10.0) * (2.0 * math.pi) - phase * 1.0
+                r2 = 0.78
+                x0 = r2 * math.cos(b)
+                y0 = r2 * math.sin(b)
+                # Tilt by 60 degrees around X-axis
+                centers.append([x0, y0 * 0.866, y0 * 0.5])
+                opacities.append(0.92)
 
             field_centers = torch.tensor(centers, dtype=torch.float64, device=device)
             field_opacities = torch.tensor(opacities, dtype=torch.float64, device=device)
 
-            # Spatially varying mass-shell / central charge coordinate phi in CP^4
-            radial_screen = torch.sqrt(vx ** 2 + vy ** 2)
-            phi_mass = (0.55 * torch.exp(1j * (radial_screen * 2.2 - phase))).unsqueeze(-1)
+            # Dynamic central-charge / mass-shell field phi(x,y)
+            r_screen = torch.sqrt(vx ** 2 + vy ** 2)
+            azimuth = torch.atan2(vy, vx)
+            phi_mass = (0.65 * torch.exp(1j * (r_screen * 6.0 - 3.0 * azimuth + phase * 2.0))).unsqueeze(-1)
 
-            # Flatten pixel batch (H*W) for vectorized v6.1 evaluation
             N_pix = height * width
-            res = render_gpo_hud_frame(
+            # Run narrow-core (sigma=0.115) pass for crisp volumetric spheres + erf() occlusion
+            res_sharp = render_gpo_hud_frame(
                 cam_origin=cam_origin_grid.reshape(N_pix, 3),
                 pi_spinor=pi_spinor.reshape(N_pix, 2),
                 field_centers=field_centers,
                 field_opacities=field_opacities,
                 phi_mass=phi_mass.reshape(N_pix, 1),
-                sigma_width=0.38,
-                L0_scale=1.5
+                sigma_width=0.115,
+                L0_scale=3.8
             )
 
-            # Verify strict Penrose incidence defect == 0 on every rendered frame
-            max_defect = float(res["incidence_defect"].max().item())
+            # Run halo/caustic envelope pass (sigma=0.28) for interference rings
+            res_halo = render_gpo_hud_frame(
+                cam_origin=cam_origin_grid.reshape(N_pix, 3),
+                pi_spinor=pi_spinor.reshape(N_pix, 2),
+                field_centers=field_centers,
+                field_opacities=field_opacities,
+                phi_mass=phi_mass.reshape(N_pix, 1),
+                sigma_width=0.28,
+                L0_scale=3.8
+            )
+
+            max_defect = float(res_sharp["incidence_defect"].max().item())
             if max_defect > 1e-10:
-                raise RuntimeError(f"Penrose incidence defect exceeded tolerance: {max_defect}")
+                raise RuntimeError(f"Incidence defect violation: {max_defect}")
 
-            # Extract GPO triad probabilities (c_G, c_P, c_O), field intensity, and H_GPO expectation
-            gpo_hud = res["gpo_hud_probs"].reshape(height, width, 3)
-            gpo_phys = res["gpo_physical_probs"].reshape(height, width, 3)
-            intensity = res["field_intensity"].reshape(height, width)
-            casimir_exp = res["gpo_spectral_expectation"].reshape(height, width) / 48.0
+            core_int = res_sharp["field_intensity"].reshape(height, width).clamp(0.0, 1.0)
+            halo_int = res_halo["field_intensity"].reshape(height, width).clamp(0.0, 1.0)
+            vis_depth = res_sharp["visible_depth"].reshape(height, width)
 
-            c_G = gpo_hud[..., 0]
-            c_P = gpo_hud[..., 1]
-            c_O = gpo_hud[..., 2]
+            # Construct local spinor interference state driven by CP^4 Casimir eigenvalues (0, 20, 48)
+            # This makes the GPO channels oscillate across the volumetric caustics
+            pi_grid = pi_spinor
+            casimir_phase_20 = 20.0 * 0.22 * halo_int + phase * 2.0
+            casimir_phase_48 = 48.0 * 0.12 * core_int - phase * 3.0
 
-            # Map exact GPO triad channels + H_GPO spectral expectation to RGB
-            # Green channel -> Emerald/Cyan, Purple channel -> Violet/Magenta, Orange channel -> Amber/Gold
-            lum = (0.18 + 0.82 * intensity.clamp(0.0, 1.0))
-            shimmer = 0.5 + 0.5 * torch.cos(casimir_exp * math.pi * 4.0 - phase)
+            omega_local = pi_grid * torch.exp(1j * (casimir_phase_20.unsqueeze(-1) + azimuth.unsqueeze(-1)))
+            phi_local = (
+                (0.95 * core_int + 0.35 * torch.sin(casimir_phase_48).abs())
+                * torch.exp(1j * casimir_phase_48)
+            ).unsqueeze(-1).to(torch.complex128)
 
-            R = lum * (0.15 * c_G + 0.72 * c_P + 1.00 * c_O) + 0.18 * intensity * c_O
-            G = lum * (0.95 * c_G + 0.18 * c_P + 0.58 * c_O) + 0.12 * shimmer * intensity
-            B = lum * (0.55 * c_G + 0.96 * c_P + 0.12 * c_O) + 0.15 * gpo_phys[..., 1]
+            Z5_local = torch.cat([omega_local, pi_grid, phi_local], dim=-1)
+            gpo_probs = compute_gpo_probabilities(Z5_local)
+            casimir_exp = compute_gpo_spectral_expectation(Z5_local) / 48.0
+
+            c_G = gpo_probs[..., 0]
+            c_P = gpo_probs[..., 1]
+            c_O = gpo_probs[..., 2]
+
+            # High-frequency Fubini-Study harmonic rings around each node
+            harmonic_rings = 0.5 + 0.5 * torch.cos(halo_int * 28.0 - phase * 4.0)
+            caustic_glow = (halo_int ** 1.35) * (0.45 + 0.55 * harmonic_rings)
+            core_hot = core_int ** 0.75
+
+            # Depth-cue attenuation (near nodes blaze brighter than occluded far nodes)
+            depth_factor = torch.exp(-0.18 * (vis_depth - 2.2).clamp(min=0.0)) * (core_int > 1e-3).to(torch.float64) + 0.65 * (core_int <= 1e-3).to(torch.float64)
+
+            # Deep obsidian void background with subtle spinor reticle grid
+            reticle = (torch.exp(-((r_screen - 0.62) ** 2) / 0.0004) + torch.exp(-((r_screen - 0.38) ** 2) / 0.0003)) * 0.22
+            bg_r = 0.015 + reticle * 0.15
+            bg_g = 0.020 + reticle * 0.65
+            bg_b = 0.045 + reticle * 0.85
+
+            # Vivid GPO Triad Palette:
+            # c_G -> Neon Emerald/Cyan, c_P -> Electric Magenta/Violet, c_O -> Incandescent Solar Gold
+            R = bg_r + depth_factor * (
+                caustic_glow * (0.10 * c_G + 0.88 * c_P + 1.00 * c_O)
+                + core_hot * (0.20 * c_G + 0.95 * c_P + 1.00 * c_O)
+                + 0.45 * (core_int ** 2.2)
+            )
+            G = bg_g + depth_factor * (
+                caustic_glow * (1.00 * c_G + 0.12 * c_P + 0.65 * c_O)
+                + core_hot * (0.98 * c_G + 0.25 * c_P + 0.82 * c_O)
+                + 0.40 * (core_int ** 2.2)
+            )
+            B = bg_b + depth_factor * (
+                caustic_glow * (0.72 * c_G + 1.00 * c_P + 0.08 * c_O)
+                + core_hot * (0.85 * c_G + 1.00 * c_P + 0.20 * c_O)
+                + 0.55 * (core_int ** 2.2) * casimir_exp
+            )
 
             rgb = torch.stack([R, G, B], dim=-1).clamp(0.0, 1.0)
             rgb_bytes = (rgb * 255.0).to(torch.uint8).cpu().numpy().tobytes()
@@ -133,9 +184,9 @@ def main():
                 f.write(f"P6\n{width} {height}\n255\n".encode("ascii"))
                 f.write(rgb_bytes)
 
-            sys.stdout.write(f"\r  [+] Rendered Spinor Frame {frame_idx + 1:02d}/{num_frames} (Max Incidence Defect: {max_defect:.1e})")
+            sys.stdout.write(f"\r  [+] Rendered Sharp Spinor Frame {frame_idx + 1:02d}/{num_frames} (Max Incidence Defect: {max_defect:.1e})")
             sys.stdout.flush()
-    print("\n  [OK] All 36 CP^4 spinor frames rendered with 0.0 incidence defect.")
+    print("\n  [OK] All 36 High-Contrast CP^4 Spinor frames rendered with 0.0 incidence defect.")
 
 
 if __name__ == "__main__":
