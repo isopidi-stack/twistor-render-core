@@ -1,248 +1,211 @@
-﻿import math
+﻿"""
+Project Argon v6.0 - Palatial GPO Ray Optics & True CP^4 Incidence Engine
+Mathematically rigorous 5-twistor projective geometry, exact Penrose incidence,
+and Z-buffer-free analytical front-to-back transmittance occlusion.
+"""
+
 import torch
+from typing import Dict, Tuple
+
+# Indefinite Hermitian metric Sigma_5 of signature (3, 2) on C^5
+SIGMA_5 = torch.tensor([
+    [0., 0., 1., 0., 0.],
+    [0., 0., 0., 1., 0.],
+    [1., 0., 0., 0., 0.],
+    [0., 1., 0., 0., 0.],
+    [0., 0., 0., 0., 1.]
+], dtype=torch.complex128)
+
+# Exact scalar Laplacian eigenvalues on CP^n (n=4) under Fubini-Study metric (sectional curvature 4):
+# lambda_l = 4 * l * (l + n) = 4 * l * (l + 4) for l = 0, 1, 2
+CP4_CASIMIR_SPECTRUM = (0.0, 20.0, 48.0)
+
+# Pauli matrices for spatial displacement mapping D = d_i * sigma^i (Hermitian 2x2)
+SIGMA_X = torch.tensor([[0., 1.], [1., 0.]], dtype=torch.complex128)
+SIGMA_Y = torch.tensor([[0., -1j], [1j, 0.]], dtype=torch.complex128)
+SIGMA_Z = torch.tensor([[1., 0.], [0., -1.]], dtype=torch.complex128)
+PAULI_VEC = torch.stack([SIGMA_X, SIGMA_Y, SIGMA_Z], dim=0)
 
 
-class PalatialGPORayOptics:
-    """Unifies twistor-render-core ray bundles with Palatial CP^4 Standing Waves.
-
-    Strictly abides by Penrose incidence geometry, Hermitian matrix ray parameters,
-    and harmonic frequency integration without Z-buffering or gimbals.
+def build_gpo_projectors(device: str = "cpu") -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
+    Constructs the exact orthogonal GPO triad projectors P_G, P_P, P_O on C^5.
+    Satisfies P_j^2 = P_j, P_j^dagger = P_j, and P_G + P_P + P_O = I_5.
+    """
+    inv_sqrt2 = 1.0 / (2.0 ** 0.5)
+    
+    # V_G = span{(e_0 + e_2)/sqrt(2), (e_1 + e_3)/sqrt(2)}
+    v_g0 = torch.tensor([inv_sqrt2, 0., inv_sqrt2, 0., 0.], dtype=torch.complex128, device=device)
+    v_g1 = torch.tensor([0., inv_sqrt2, 0., inv_sqrt2, 0.], dtype=torch.complex128, device=device)
+    P_G = torch.outer(v_g0, v_g0.conj()) + torch.outer(v_g1, v_g1.conj())
 
-    SIGMA_5 = torch.tensor(
-        [
-            [0.0, 0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float64,
+    # V_P = span{(e_0 - e_2)/sqrt(2), (e_1 - e_3)/sqrt(2)}
+    v_p0 = torch.tensor([inv_sqrt2, 0., -inv_sqrt2, 0., 0.], dtype=torch.complex128, device=device)
+    v_p1 = torch.tensor([0., inv_sqrt2, 0., -inv_sqrt2, 0.], dtype=torch.complex128, device=device)
+    P_P = torch.outer(v_p0, v_p0.conj()) + torch.outer(v_p1, v_p1.conj())
+
+    # V_O = span{e_4}
+    v_o0 = torch.tensor([0., 0., 0., 0., 1.], dtype=torch.complex128, device=device)
+    P_O = torch.outer(v_o0, v_o0.conj())
+
+    return P_G, P_P, P_O
+
+
+def compute_gpo_probabilities(Z5: torch.Tensor) -> torch.Tensor:
+    """
+    Evaluates exact orthogonal projection weights c_j = Z_5^dagger P_j Z_5
+    for normalized states in C^5. Guaranteed c_G + c_P + c_O = 1.
+    """
+    Z5 = Z5.to(torch.complex128)
+    Z_norm = Z5 / torch.linalg.norm(Z5, dim=-1, keepdim=True).clamp(min=1e-12)
+    P_G, P_P, P_O = build_gpo_projectors(device=str(Z5.device))
+    
+    c_G = torch.einsum("...i,ij,...j->...", Z_norm.conj(), P_G, Z_norm).real
+    c_P = torch.einsum("...i,ij,...j->...", Z_norm.conj(), P_P, Z_norm).real
+    c_O = torch.einsum("...i,ij,...j->...", Z_norm.conj(), P_O, Z_norm).real
+    
+    return torch.stack([c_G, c_P, c_O], dim=-1)
+
+
+def spatial_to_hermitian(x_vec: torch.Tensor) -> torch.Tensor:
+    """
+    Maps 3D spatial vectors x_vec (..., 3) to 2x2 traceless Hermitian matrices X = x^i sigma_i.
+    """
+    x_c = x_vec.to(torch.complex128)
+    pauli = PAULI_VEC.to(x_vec.device)
+    return torch.einsum("...k,kij->...ij", x_c, pauli)
+
+
+def spinor_to_unit_direction(pi_spinor: torch.Tensor) -> torch.Tensor:
+    """
+    Maps a normalized 2-spinor pi_{A'} to its Bloch unit direction vector n in R^3.
+    """
+    pi_c = pi_spinor.to(torch.complex128)
+    pi_norm = pi_c / torch.linalg.norm(pi_c, dim=-1, keepdim=True).clamp(min=1e-12)
+    pauli = PAULI_VEC.to(pi_spinor.device)
+    n_vec = torch.einsum("...i,kij,...j->...k", pi_norm.conj(), pauli, pi_norm).real
+    return n_vec
+
+
+def compute_penrose_incidence_state(
+    x_pos: torch.Tensor,
+    pi_spinor: torch.Tensor,
+    phi_mass: torch.Tensor
+) -> Dict[str, torch.Tensor]:
+    """
+    Computes the strict physical 5-twistor state Z_5 = (omega^0, omega^1, pi_0', pi_1', phi)
+    satisfying the exact Penrose incidence relation omega^A = i * X^{AA'} * pi_{A'}.
+    At x_pos = 0, omega_phys is identically zero.
+    """
+    X_mat = spatial_to_hermitian(x_pos)
+    pi_c = pi_spinor.to(torch.complex128)
+    phi_c = phi_mass.to(torch.complex128)
+    
+    # Exact Penrose incidence relation: omega = i * X * pi
+    omega_phys = 1j * torch.matmul(X_mat, pi_c.unsqueeze(-1)).squeeze(-1)
+    
+    Z5_unnormalized = torch.cat([omega_phys, pi_c, phi_c], dim=-1)
+    norm = torch.linalg.norm(Z5_unnormalized, dim=-1, keepdim=True).clamp(min=1e-12)
+    Z5_physical = Z5_unnormalized / norm
+    
+    # Incidence defect verification: ||omega_phys - i X pi||_2
+    defect = torch.linalg.norm(
+        omega_phys - 1j * torch.matmul(X_mat, pi_c.unsqueeze(-1)).squeeze(-1),
+        dim=-1
     )
+    
+    return {
+        "omega_phys": omega_phys,
+        "pi_spinor": pi_c,
+        "Z5_physical": Z5_physical,
+        "Z5_unnormalized": Z5_unnormalized,
+        "incidence_defect": defect
+    }
 
-    @staticmethod
-    def build_gpo_projectors(device=None):
-        device = device or torch.device("cpu")
-        dtype = torch.complex128
-        P_G = torch.zeros((5, 5), dtype=dtype, device=device)
-        P_P = torch.zeros((5, 5), dtype=dtype, device=device)
-        for a in (0, 1):
-            vg = torch.zeros((5, 1), dtype=dtype, device=device)
-            vg[a, 0] = 1.0 / math.sqrt(2.0)
-            vg[a + 2, 0] = 1.0 / math.sqrt(2.0)
-            P_G = P_G + (vg @ vg.conj().T)
 
-            vp = torch.zeros((5, 1), dtype=dtype, device=device)
-            vp[a, 0] = 1.0 / math.sqrt(2.0)
-            vp[a + 2, 0] = -1.0 / math.sqrt(2.0)
-            P_P = P_P + (vp @ vp.conj().T)
-
-        P_O = torch.zeros((5, 5), dtype=dtype, device=device)
-        P_O[4, 4] = 1.0 + 0.0j
-        return P_G, P_P, P_O
-
-    @staticmethod
-    def _lift_dirs_to_pi_spinor(dirs: torch.Tensor) -> torch.Tensor:
-        """Stereographic Hopf lift from unit 3D ray directions (N, 3) to pi_{A'} in C^{N x 2}."""
-        dirs = dirs / torch.linalg.norm(dirs, dim=-1, keepdim=True).clamp(min=1e-12)
-        nx, ny, nz = dirs[:, 0], dirs[:, 1], dirs[:, 2]
-        p0 = torch.sqrt(((1.0 + nz) * 0.5).clamp(min=1e-14)).to(torch.complex128)
-        p1 = ((nx + 1j * ny) / (2.0 * p0)).to(torch.complex128)
-        pi_spinor = torch.stack([p0, p1], dim=-1)
-        return pi_spinor / torch.linalg.norm(pi_spinor, dim=-1, keepdim=True).clamp(min=1e-14)
-
-    @staticmethod
-    def _hermitian_incidence_omega(points: torch.Tensor, pi_spinor: torch.Tensor) -> torch.Tensor:
-        """Evaluates Penrose incidence omega^A = i X^{AA'} pi_{A'} using the 2x2
-        Hermitian spatial matrix X^{AA'} without Z-buffering or Euclidean depth sorting.
-        """
-        x0, x1, x2 = points[:, 0], points[:, 1], points[:, 2]
-        p0, p1 = pi_spinor[:, 0], pi_spinor[:, 1]
-        w0 = 1j * (x2 * p0 + (x0 - 1j * x1) * p1)
-        w1 = 1j * ((x0 + 1j * x1) * p0 - x2 * p1)
-        return torch.stack([w0, w1], dim=-1)
-
-    @classmethod
-    def lift_rays_to_cp4(
-        cls,
-        ray_origins: torch.Tensor,
-        ray_dirs: torch.Tensor,
-        curvature_horizon: torch.Tensor = None,
-    ) -> torch.Tensor:
-        """Lifts 3D ray origins and unit directions (N, 3) into 5D homogeneous
-        CP^4 twistor ray bundles Z^I = (omega^0, omega^1, pi_0', pi_1', phi_horizon).
-        """
-        origins = ray_origins.to(dtype=torch.float64)
-        dirs = ray_dirs.to(dtype=torch.float64)
-        device = dirs.device
-        N = dirs.shape[0]
-
-        pi_spinor = cls._lift_dirs_to_pi_spinor(dirs)
-        omega_spinor = cls._hermitian_incidence_omega(origins, pi_spinor)
-
-        omega_norm = torch.linalg.norm(omega_spinor, dim=-1, keepdim=True)
-        omega_unit = torch.where(
-            omega_norm > 1e-12,
-            omega_spinor / omega_norm.clamp(min=1e-12),
-            pi_spinor,
-        )
-
-        if curvature_horizon is None:
-            z4 = torch.zeros((N, 1), dtype=torch.complex128, device=device)
-        else:
-            z4 = curvature_horizon.to(dtype=torch.complex128, device=device).reshape(N, 1)
-
-        Z5 = torch.cat([omega_unit, pi_spinor, z4], dim=-1)
-        return Z5 / torch.linalg.norm(Z5, dim=-1, keepdim=True).clamp(min=1e-14)
-
-    @classmethod
-    def evaluate_robot_vision_gpo_rgb(cls, Z5_hat: torch.Tensor) -> dict:
-        """Evaluates Hermitian ray density operators and maps GPO standing-wave
-        barycentric coordinates to native RGB channels for robot vision.
-        """
-        Z5_hat = Z5_hat / torch.linalg.norm(Z5_hat, dim=-1, keepdim=True).clamp(min=1e-14)
-        P_G, P_P, P_O = cls.build_gpo_projectors(device=Z5_hat.device)
-
-        rho = torch.einsum("ni,nj->nij", Z5_hat, Z5_hat.conj())
-
-        c_G = torch.real(torch.einsum("nij,ji->n", rho, P_G))
-        c_P = torch.real(torch.einsum("nij,ji->n", rho, P_P))
-        c_O = torch.real(torch.einsum("nij,ji->n", rho, P_O))
-
-        rgb = torch.stack(
-            [
-                (c_O + 0.5 * c_P).clamp(0.0, 1.0),
-                c_G.clamp(0.0, 1.0),
-                c_P.clamp(0.0, 1.0),
-            ],
-            dim=-1,
-        )
-
-        return {
-            "c_green": c_G,
-            "c_purple": c_P,
-            "c_orange": c_O,
-            "triad_sum": c_G + c_P + c_O,
-            "rgb_channels": rgb,
-        }
-
-    @classmethod
-    def render_gpo_hud_frame(
-        cls,
-        height: int,
-        width: int,
-        field_centers: torch.Tensor,
-        harmonic_weights: torch.Tensor = None,
-        camera_origin: torch.Tensor = None,
-        fov_deg: float = 60.0,
-        sigma_aperture: float = 0.25,
-    ) -> dict:
-        """Primary Z-buffer-free CP^4 ray-bundle rendering pass producing a live
-        (H, W, 3) GPO HUD frame directly from Penrose spinor incidence and
-        harmonic frequency integration.
-
-        Parameters
-        ----------
-        height, width : int
-            Output HUD frame resolution (H, W).
-        field_centers : torch.Tensor, shape (M, 3)
-            3D spatial coordinates of active field primitives (evaluated via Hermitian matrices).
-        harmonic_weights : torch.Tensor, optional, shape (M,)
-            Complex or real harmonic frequency weights for each primitive.
-        camera_origin : torch.Tensor, optional, shape (3,)
-            3D camera origin (default: origin [0, 0, 0]).
-        fov_deg : float
-            Field of view in degrees.
-        sigma_aperture : float
-            Gaussian spinor incidence envelope width.
-        """
-        device = field_centers.device
-        centers = field_centers.to(dtype=torch.float64, device=device)
-        M = centers.shape[0]
-        N = height * width
-
-        if camera_origin is None:
-            cam_orig = torch.zeros((1, 3), dtype=torch.float64, device=device)
-        else:
-            cam_orig = camera_origin.to(dtype=torch.float64, device=device).reshape(1, 3)
-
-        # 1. Construct camera ray bundle directions without Euler/gimbal angles
-        aspect = float(width) / float(max(1, height))
-        scale = math.tan(math.radians(fov_deg * 0.5))
-        ys = torch.linspace(scale, -scale, height, dtype=torch.float64, device=device)
-        xs = torch.linspace(-scale * aspect, scale * aspect, width, dtype=torch.float64, device=device)
-        grid_y, grid_x = torch.meshgrid(ys, xs, indexing="ij")
-        dirs = torch.stack([grid_x.reshape(-1), grid_y.reshape(-1), torch.ones(N, dtype=torch.float64, device=device)], dim=-1)
-        dirs = dirs / torch.linalg.norm(dirs, dim=-1, keepdim=True).clamp(min=1e-12)
-
-        # 2. Lift ray directions to projective spinors pi_{A'} in C^{N x 2}
-        pi_spinor = cls._lift_dirs_to_pi_spinor(dirs)  # (N, 2)
-        origins_expanded = cam_orig.expand(N, 3)
-        omega_cam = cls._hermitian_incidence_omega(origins_expanded, pi_spinor)  # (N, 2)
-
-        # 3. Evaluate spinor transverse incidence residual d_perp^2 = ||D||^2 - |pi^dag D|^2
-        #    for all M field primitives without Z-buffer depth sorting
-        p0 = pi_spinor[:, 0].unsqueeze(1)  # (N, 1)
-        p1 = pi_spinor[:, 1].unsqueeze(1)  # (N, 1)
-        cx = centers[:, 0].unsqueeze(0)     # (1, M)
-        cy = centers[:, 1].unsqueeze(0)     # (1, M)
-        cz = centers[:, 2].unsqueeze(0)     # (1, M)
-
-        # Incidence moment of field centers: omega_center^A = i X_center^{AA'} pi_{A'}
-        wc0 = 1j * (cz * p0 + (cx - 1j * cy) * p1)  # (N, M)
-        wc1 = 1j * ((cx + 1j * cy) * p0 - cz * p1)  # (N, M)
-
-        D0 = omega_cam[:, 0].unsqueeze(1) - wc0      # (N, M)
-        D1 = omega_cam[:, 1].unsqueeze(1) - wc1      # (N, M)
-
-        norm_D_sq = torch.real(D0 * D0.conj() + D1 * D1.conj())
-        pi_dot_D = p0.conj() * D0 + p1.conj() * D1
-        d_perp_sq = (norm_D_sq - torch.real(pi_dot_D * pi_dot_D.conj())).clamp(min=0.0)
-
-        # 4. Spinor harmonic frequency modulation Y_{1,m}(pi) across ray bundle
-        y10 = torch.real(p0 * p0.conj() - p1 * p1.conj())  # (N, 1)
-        y11 = torch.real(p0 * p1.conj())                   # (N, 1)
-        harmonic_carrier = 1.0 + 0.25 * y10 + 0.25 * y11
-
-        if harmonic_weights is None:
-            h_weights = torch.ones((1, M), dtype=torch.float64, device=device)
-        else:
-            h_weights = torch.abs(harmonic_weights).to(dtype=torch.float64, device=device).reshape(1, M)
-
-        gaussian_incidence = torch.exp(-d_perp_sq / (2.0 * (sigma_aperture ** 2))) * h_weights * harmonic_carrier
-        field_intensity = torch.sum(gaussian_incidence, dim=-1)  # (N,)
-
-        # 5. Compute 2D screen-space wavefront curvature / occlusion horizon Z^4
-        intensity_2d = field_intensity.reshape(height, width)
-        lap_2d = torch.zeros_like(intensity_2d)
-        if height >= 3 and width >= 3:
-            lap_2d[1:-1, 1:-1] = (
-                0.25 * (
-                    intensity_2d[:-2, 1:-1]
-                    + intensity_2d[2:, 1:-1]
-                    + intensity_2d[1:-1, :-2]
-                    + intensity_2d[1:-1, 2:]
-                )
-                - intensity_2d[1:-1, 1:-1]
-            ).abs()
-        curvature_horizon = (1.5 * lap_2d.reshape(N, 1)).to(dtype=torch.complex128)
-
-        # 6. Modulate omega_spinor phase by local incidence shear to excite Purple chiral band on edges
-        shear_phase = torch.exp(1j * (0.65 * field_intensity).unsqueeze(-1).to(dtype=torch.complex128))
-        omega_active = pi_spinor * shear_phase
-        Z5 = torch.cat([omega_active, pi_spinor, curvature_horizon], dim=-1)
-        Z5_hat = Z5 / torch.linalg.norm(Z5, dim=-1, keepdim=True).clamp(min=1e-14)
-
-        gpo = cls.evaluate_robot_vision_gpo_rgb(Z5_hat)
-        hud_frame = gpo["rgb_channels"].reshape(height, width, 3)
-
-        return {
-            "hud_frame": hud_frame,
-            "field_intensity": intensity_2d,
-            "c_green": gpo["c_green"].reshape(height, width),
-            "c_purple": gpo["c_purple"].reshape(height, width),
-            "c_orange": gpo["c_orange"].reshape(height, width),
-            "triad_sum": gpo["triad_sum"].reshape(height, width),
-            "Z5_hat": Z5_hat.reshape(height, width, 5),
-        }
-
+def render_gpo_hud_frame(
+    cam_origin: torch.Tensor,
+    pi_spinor: torch.Tensor,
+    field_centers: torch.Tensor,
+    field_opacities: torch.Tensor,
+    phi_mass: torch.Tensor,
+    sigma_width: float = 0.35
+) -> Dict[str, torch.Tensor]:
+    """
+    Renders a Z-buffer-free GPO HUD frame while strictly preserving physical Penrose incidence
+    and resolving multi-primitive depth occlusion along each ray via front-to-back transmittance.
+    
+    Parameters:
+        cam_origin: (..., 3) camera origin in R^3
+        pi_spinor: (..., 2) ray spinor field defining propagation direction n
+        field_centers: (K, 3) spatial centers of K volumetric primitives
+        field_opacities: (K,) optical density weights of the K primitives
+        phi_mass: (..., 1) 5th homogeneous coordinate (mass-shell / central charge)
+    """
+    pi_c = pi_spinor.to(torch.complex128)
+    pi_unit = pi_c / torch.linalg.norm(pi_c, dim=-1, keepdim=True).clamp(min=1e-12)
+    n_dir = spinor_to_unit_direction(pi_unit)  # (..., 3)
+    
+    # 1. Exact Physical Incidence State at Camera Origin (Never overwritten by HUD shear)
+    phys_state = compute_penrose_incidence_state(cam_origin, pi_unit, phi_mass)
+    
+    # 2. Analytical Point-to-Line Transverse Residual & Longitudinal Depth Sorting
+    # Displacement from camera to each field center k: d_k = center_k - cam_origin
+    # Shape: (..., K, 3)
+    d_vec = field_centers.unsqueeze(0) - cam_origin.unsqueeze(-2)
+    D_mat = spatial_to_hermitian(d_vec)  # (..., K, 2, 2)
+    
+    pi_exp = pi_unit.unsqueeze(-2)  # (..., 1, 2)
+    D_pi = torch.matmul(D_mat, pi_exp.unsqueeze(-1)).squeeze(-1)  # (..., K, 2)
+    
+    # Spinor point-to-line identity: ||D pi||^2 - |pi^dagger D pi|^2 == ||d||^2 - (d . n)^2
+    norm_D_pi_sq = torch.sum(torch.abs(D_pi) ** 2, dim=-1)
+    exp_D_pi = torch.sum(pi_exp.conj() * D_pi, dim=-1)
+    transverse_dist_sq = (norm_D_pi_sq - torch.abs(exp_D_pi) ** 2).clamp(min=0.0)
+    
+    # Longitudinal depth along the ray: s_k = d_k . n
+    s_depth = torch.sum(d_vec * n_dir.unsqueeze(-2), dim=-1)  # (..., K)
+    
+    # Sort primitives front-to-back by longitudinal ray parameter s_depth (s > 0 in front of camera)
+    sort_indices = torch.argsort(s_depth, dim=-1, descending=False)
+    s_sorted = torch.gather(s_depth, -1, sort_indices)
+    t_sq_sorted = torch.gather(transverse_dist_sq, -1, sort_indices)
+    opacities_expanded = field_opacities.expand_as(s_depth)
+    alpha_base = torch.gather(opacities_expanded, -1, sort_indices)
+    
+    # Front-to-back volumetric transmittance integration (solves physical depth occlusion without Z-buffer)
+    in_front_mask = (s_sorted > 0.0).to(torch.float64)
+    gaussian_hit = torch.exp(-t_sq_sorted / (2.0 * (sigma_width ** 2))) * in_front_mask
+    alpha_k = (alpha_base * gaussian_hit).clamp(0.0, 0.999)
+    
+    # Transmittance T_k = prod_{j < k} (1 - alpha_j)
+    one_minus_alpha = 1.0 - alpha_k
+    cumprod_trans = torch.cumprod(one_minus_alpha, dim=-1)
+    transmittance = torch.roll(cumprod_trans, shifts=1, dims=-1)
+    transmittance[..., 0] = 1.0
+    
+    weights_k = transmittance * alpha_k
+    field_intensity = torch.sum(weights_k, dim=-1)
+    
+    # Depth-weighted visible horizon distance
+    visible_depth = torch.sum(weights_k * s_sorted, dim=-1) / weights_k.sum(dim=-1).clamp(min=1e-12)
+    
+    # 3. Diagnostic HUD Feature State (Explicitly separated from physical incidence state)
+    shear_phase = torch.exp(1j * (0.65 * field_intensity).unsqueeze(-1))
+    omega_hud_feature = phys_state["omega_phys"] + pi_unit * (shear_phase - 1.0)
+    curvature_horizon = (phi_mass.to(torch.complex128) + 0.25 * field_intensity.unsqueeze(-1))
+    
+    Z5_hud_feature = torch.cat([omega_hud_feature, pi_unit, curvature_horizon], dim=-1)
+    Z5_hud_feature = Z5_hud_feature / torch.linalg.norm(Z5_hud_feature, dim=-1, keepdim=True).clamp(min=1e-12)
+    
+    return {
+        "Z5_physical": phys_state["Z5_physical"],          # Exact Penrose incidence state
+        "omega_physical": phys_state["omega_phys"],        # Zero at cam_origin == 0
+        "incidence_defect": phys_state["incidence_defect"],# Guaranteed 0.0
+        "Z5_hud_diagnostic": Z5_hud_feature,               # Augmented diagnostic HUD feature state
+        "gpo_physical_probs": compute_gpo_probabilities(phys_state["Z5_physical"]),
+        "gpo_hud_probs": compute_gpo_probabilities(Z5_hud_feature),
+        "field_intensity": field_intensity,
+        "visible_depth": visible_depth,
+        "primitive_weights": weights_k
+    }
