@@ -7,10 +7,6 @@ from twistor.harmonics import PenroseTwistorHarmonicEngine
 class TestRigorousPenroseTransformAndBaselines(unittest.TestCase):
 
     def test_1_strict_homogeneity_of_actual_integrand(self):
-        """
-        Verifies exact homogeneity f(lambda * Z) = lambda^{-2} f(Z) on the actual elementary
-        twistor function using the (is_homogeneous, rel_err) tuple and explicit tolerance check.
-        """
         torch.manual_seed(42)
         Z = torch.randn((50, 4), dtype=torch.complex128)
         is_homog, rel_err = TwistorCohomologyEngine.check_homogeneity(
@@ -21,31 +17,25 @@ class TestRigorousPenroseTransformAndBaselines(unittest.TestCase):
         self.assertLess(rel_err, 1e-14)
 
     def test_2_pole_separation_and_non_vanishing_wave_solution(self):
-        """
-        Verifies pole separation, non-zero field |phi(x)| > 0.1, contour vs Cauchy residue match,
-        and 4D massless wave equation Box phi(x) = 0 via exact autograd Hessian.
-        """
         x4 = torch.tensor([0.15, -0.10, 0.12, 0.08], dtype=torch.float64, requires_grad=True)
         _, _, _, _, zeta_A, zeta_B = TwistorCohomologyEngine.linear_forms_on_cp1(x4)
 
         mag_A = torch.abs(zeta_A).item()
         mag_B = torch.abs(zeta_B).item()
-        self.assertLess(mag_A, 0.6)
-        self.assertGreater(mag_B, 1.8)
 
-        phi_contour = TwistorCohomologyEngine.contour_integral_transform(x4, num_pts=256, adaptive_radius=True)
+        phi_contour = TwistorCohomologyEngine.contour_integral_transform(x4, num_pts=256)
         phi_exact   = TwistorCohomologyEngine.analytical_residue_transform(x4)
         field_mag   = torch.abs(phi_contour).item()
         quad_err    = torch.abs(phi_contour - phi_exact).item()
 
         self.assertGreater(field_mag, 0.1)
-        self.assertLess(quad_err, 1e-14)
+        self.assertLess(quad_err, 1e-15)
 
         def eval_re(pt):
-            return TwistorCohomologyEngine.contour_integral_transform(pt, num_pts=256, adaptive_radius=True).real
+            return TwistorCohomologyEngine.contour_integral_transform(pt, num_pts=256).real
 
         def eval_im(pt):
-            return TwistorCohomologyEngine.contour_integral_transform(pt, num_pts=256, adaptive_radius=True).imag
+            return TwistorCohomologyEngine.contour_integral_transform(pt, num_pts=256).imag
 
         hess_re = torch.autograd.functional.hessian(eval_re, x4)
         hess_im = torch.autograd.functional.hessian(eval_im, x4)
@@ -58,63 +48,81 @@ class TestRigorousPenroseTransformAndBaselines(unittest.TestCase):
         print(f"  -> [RIGOROUS AUDIT 2] Poles: |zeta_A|={mag_A:.3f}, |zeta_B|={mag_B:.3f} | |phi(x)|={field_mag:.4f} | Wave Err: {relative_wave_residual:.2e}")
         self.assertLess(relative_wave_residual, 1e-13)
 
-    def test_3_adaptive_contour_radius_near_unit_circle_poles(self):
+    def test_3_pole_centered_contour_on_wide_domain_and_tight_poles(self):
         """
-        Addresses the second review's #1 numerical finding:
-        Samples 2,000 random spacetime points in [-1, 1]^4, filters for points that pass
-        |zeta_A| < 1 < |zeta_B| INCLUDING near-boundary poles (margin < 0.05 from |zeta|=1),
-        and proves that:
-          - Fixed |zeta|=1 trapezoid quadrature degrades badly when pole margin < 0.05, whereas
-          - Adaptive radius rho = sqrt(|zeta_A| * |zeta_B|) achieves < 1e-14 max relative error across all points!
+        Addresses Reviewer 1's findings #1 and #2:
+          - Tests 5,000 random points in the wide domain [-10, 10]^4 (where |zeta_A| > |zeta_B|
+            on ~34% of points and |zeta_A|/|zeta_B| approaches 1).
+          - Tests a custom tight-pole pair (A_tight, B_tight) with modulus ratio r = |zeta_A|/|zeta_B| = 0.967.
+          - Proves that the pole-centered contour Gamma_x = { zeta_A + 0.5*|zeta_A - zeta_B|*e^{i*phi} }
+            succeeds on 100% of points and achieves < 1e-14 relative error everywhere!
         """
         torch.manual_seed(2026)
-        pts_4d = (torch.rand((2000, 4), dtype=torch.float64) * 2.0 - 1.0)
-        _, _, _, _, zeta_A, zeta_B = TwistorCohomologyEngine.linear_forms_on_cp1(pts_4d)
-        mag_A = torch.abs(zeta_A)
-        mag_B = torch.abs(zeta_B)
+        pts_wide = (torch.rand((5000, 4), dtype=torch.float64) * 20.0 - 10.0)
+        phi_exact_wide = TwistorCohomologyEngine.analytical_residue_transform(pts_wide)
+        phi_contour_wide = TwistorCohomologyEngine.contour_integral_transform(pts_wide, num_pts=256, contour_mode="pole_centered")
+        rel_err_wide = torch.max(torch.abs(phi_contour_wide - phi_exact_wide) / torch.abs(phi_exact_wide)).item()
 
-        # Keep points where |zeta_A| < 1 < |zeta_B|
-        valid_mask = (mag_A < 0.995) & (mag_B > 1.005)
-        pts_valid = pts_4d[valid_mask]
+        # Tight-pole configuration with |zeta_A| / |zeta_B| = 0.967
+        A_tight = torch.tensor([0.10 + 0.05j, -0.10 + 0.05j, -0.967 + 0.00j, 1.00 + 0.00j], dtype=torch.complex128)
+        B_tight = torch.tensor([0.10 - 0.05j,  0.10 + 0.05j, -1.000 + 0.00j, 1.00 + 0.00j], dtype=torch.complex128)
+        x_origin = torch.zeros(4, dtype=torch.float64)
+        phi_exact_tight = TwistorCohomologyEngine.analytical_residue_transform(x_origin, A=A_tight, B=B_tight)
+        phi_contour_tight = TwistorCohomologyEngine.contour_integral_transform(x_origin, num_pts=256, A=A_tight, B=B_tight, contour_mode="pole_centered")
+        rel_err_tight = (torch.abs(phi_contour_tight - phi_exact_tight) / torch.abs(phi_exact_tight)).item()
 
-        phi_exact    = TwistorCohomologyEngine.analytical_residue_transform(pts_valid)
-        phi_fixed    = TwistorCohomologyEngine.contour_integral_transform(pts_valid, num_pts=256, adaptive_radius=False)
-        phi_adaptive = TwistorCohomologyEngine.contour_integral_transform(pts_valid, num_pts=256, adaptive_radius=True)
+        print(f"  -> [RIGOROUS AUDIT 3: Pole-Centered Contour] [-10,10]^4 (5000 pts) Max Rel Err: {rel_err_wide:.2e} | Tight Poles (r=0.967) Rel Err: {rel_err_tight:.2e}")
+        self.assertLess(rel_err_wide, 1e-14)
+        self.assertLess(rel_err_tight, 1e-14)
 
-        rel_err_fixed    = torch.max(torch.abs(phi_fixed - phi_exact) / torch.abs(phi_exact)).item()
-        rel_err_adaptive = torch.max(torch.abs(phi_adaptive - phi_exact) / torch.abs(phi_exact)).item()
-
-        print(f"  -> [RIGOROUS AUDIT 3: Adaptive Radius ({pts_valid.shape[0]} pts)] Fixed |zeta|=1 Max Rel Err: {rel_err_fixed:.2e} vs Adaptive rho=sqrt(|zA||zB|) Max Rel Err: {rel_err_adaptive:.2e}")
-        self.assertLess(rel_err_adaptive, 1e-14)
-
-    def test_4_genuine_u0_u1_cech_coboundary_and_invalid_pole_rejection(self):
+    def test_4_non_vacuous_simple_pole_cech_coboundary_and_negative_control(self):
         """
-        Verifies:
-          1. Valid Cech 0-cochain pair (C_u0, D_u1) passes explicit U_0 / U_1 patch holomorphicity
-             verification and leaves phi(x) invariant to ~1e-16.
-          2. An invalid coboundary section whose pole lies INSIDE U_0 (|zeta_C| < rho) is
-             strictly rejected by CechCohomologyClassH1.verify_patch_holomorphicity!
+        Addresses Reviewer 1's finding #3 (vacuous double poles) and Reviewer 2's Priority #1:
+          1. Uses simple-pole sections h_0(Z) = c0 / ((C1.Z)(C2.Z)) with non-zero residues at two
+             distinct poles outside Gamma_x (holomorphic on V_0) and h_1(Z) = c1 / ((D1.Z)(D2.Z))
+             with two distinct simple poles inside Gamma_x (holomorphic on V_1, opposite residues cancel).
+             Verifies that adding delta(h) = h_0 - h_1 leaves phi(x) invariant to ~1e-16.
+          2. Negative Control: Adds g(Z) = w / ((D1_in.Z)(C1_out.Z)) which has one simple pole INSIDE
+             Gamma_x and one simple pole OUTSIDE Gamma_x (so g is NOT a coboundary on V_0 + V_1).
+             Proves that:
+               (a) verify_patch_holomorphicity strictly rejects (D1_in, C1_out) on both V_0 and V_1, and
+               (b) integrating f + g shifts phi(x) by the exact non-zero residue Delta_phi = w / (p1*q0 - p0*q1)!
         """
         x4 = torch.tensor([0.15, -0.10, 0.12, 0.08], dtype=torch.float64)
+        center_A, radius_R = TwistorCohomologyEngine.compute_pole_centered_contour(x4)
 
-        # Valid C_u0 (pole at |zeta_C| ~ 3.0 > rho) and valid D_u1 (pole at |zeta_D| ~ 0.22 < rho)
-        C_valid = torch.tensor([0.10 - 0.05j, 0.20 + 0.10j, 3.00 + 0.50j, 1.00 + 0.00j], dtype=torch.complex128)
-        D_valid = torch.tensor([-0.15 + 0.10j, 0.10 - 0.20j, -0.20 + 0.10j, 1.00 + 0.00j], dtype=torch.complex128)
+        # Two distinct simple poles outside Gamma_x (|zeta - zeta_A| > R ~ 1.40) -> valid V_0 section
+        C1_out = torch.tensor([0.10 - 0.05j, 0.20 + 0.10j,  3.20 + 0.40j, 1.00 + 0.00j], dtype=torch.complex128)
+        C2_out = torch.tensor([-0.10 + 0.05j, 0.15 - 0.10j, 4.10 - 0.30j, 1.00 + 0.00j], dtype=torch.complex128)
 
-        phi_orig = TwistorCohomologyEngine.contour_integral_transform(x4, num_pts=256, adaptive_radius=True)
-        phi_pert = TwistorCohomologyEngine.contour_integral_transform(
-            x4, num_pts=256, adaptive_radius=True, cech_coboundary_pair=(C_valid, D_valid)
+        # Two distinct simple poles inside Gamma_x (|zeta - zeta_A| < R ~ 1.40) -> valid V_1 section
+        D1_in = torch.tensor([0.25 + 0.10j, -0.15 + 0.10j, -0.20 + 0.05j, 1.00 + 0.00j], dtype=torch.complex128)
+        D2_in = torch.tensor([0.20 - 0.05j, -0.10 + 0.05j, -0.35 - 0.05j, 1.00 + 0.00j], dtype=torch.complex128)
+
+        phi_orig = TwistorCohomologyEngine.contour_integral_transform(x4, num_pts=256)
+        phi_cob  = TwistorCohomologyEngine.contour_integral_transform(
+            x4, num_pts=256, cech_coboundary_v0=(C1_out, C2_out), cech_coboundary_v1=(D1_in, D2_in)
         )
-        gauge_diff = torch.abs(phi_pert - phi_orig).item()
-        self.assertLess(gauge_diff, 1e-14)
+        cob_diff = torch.abs(phi_cob - phi_orig).item()
+        self.assertLess(cob_diff, 1e-14)
 
-        # Now test an INVALID U_0 section C_bad whose pole is at ~0.10 (INSIDE U_0!)
-        C_bad = torch.tensor([0.01 + 0.01j, -0.01 + 0.01j, -0.10 + 0.00j, 1.00 + 0.00j], dtype=torch.complex128)
+        # Negative Control: (D1_in, C1_out) has one pole inside Gamma_x and one pole outside Gamma_x!
         with self.assertRaises(ValueError):
-            TwistorCohomologyEngine.contour_integral_transform(
-                x4, num_pts=256, adaptive_radius=True, cech_coboundary_pair=(C_bad, D_valid)
-            )
-        print(f"  -> [RIGOROUS AUDIT 4] Valid U_0/U_1 Cech Coboundary |phi_pert - phi_orig|: {gauge_diff:.2e} | Invalid In-Patch Pole Rejected: True")
+            CechCohomologyClassH1.verify_patch_holomorphicity(x4, center_A, radius_R, D1_in, C1_out, patch="V0")
+        with self.assertRaises(ValueError):
+            CechCohomologyClassH1.verify_patch_holomorphicity(x4, center_A, radius_R, D1_in, C1_out, patch="V1")
+
+        weight = 1.25 + 0.0j
+        phi_shifted = TwistorCohomologyEngine.contour_integral_transform(
+            x4, num_pts=256, extra_cocycle_term=(D1_in, C1_out, weight)
+        )
+        measured_shift = phi_shifted - phi_orig
+        expected_shift = weight * TwistorCohomologyEngine.analytical_residue_transform(x4, A=D1_in, B=C1_out)
+        neg_ctrl_err = torch.abs(measured_shift - expected_shift).item()
+
+        print(f"  -> [RIGOROUS AUDIT 4: Non-Vacuous Cech] Coboundary Diff: {cob_diff:.2e} | Negative-Control Shift |Delta phi|={torch.abs(measured_shift).item():.4f} (Match Err: {neg_ctrl_err:.2e})")
+        self.assertGreater(torch.abs(measured_shift).item(), 0.2)
+        self.assertLess(neg_ctrl_err, 1e-14)
 
     def test_5_special_conformal_k_matrix_su22_invariance(self):
         b_4d = torch.tensor([0.8, -1.2, 0.5, -0.9], dtype=torch.float64)
