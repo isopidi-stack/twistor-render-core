@@ -6,15 +6,15 @@ A polygon-free, Z-buffer-free volumetric and spinor ray-optics engine built on f
 
 ## Visual Proof Suite
 
-| True $\mathbb{CP}^4$ Spinor & $\mathrm{erf}()$ HUD | Twistor Null-Cone Caustic Slice | Luminous $\mathbb{CP}^3/\mathbb{CP}^4$ Nebula | Standing Wave Harmonic Field |
-| :---: | :---: | :---: | :---: |
-| <p align="center">
-  <img src="cp3_twistor_laser_filaments.gif" width="512" alt="CP3 High-Acuity Hopf-Robinson Zero-Z-Buffer Proof" />
+<p align="center">
+  <img src="cp3_twistor_laser_filaments.gif" width="540" alt="CP3 High-Acuity Hopf-Robinson Zero-Z-Buffer Proof" />
   <br>
-  <em><b>Crown Jewel Proof:</b> 64-Node High-Acuity CP³ Hopf-Robinson Null Congruence (0 Bytes Z-Buffer, Exact Analytical Spinor Pullback, complex128)</em>
+  <sub><b>64-Node High-Acuity CP³ Hopf-Robinson Null Congruence</b> — 0 Bytes Z-Buffer | Exact Analytical Spinor Pullback (<code>complex128</code>)</sub>
 </p>
 
-![GPO Spinor HUD](twistor_gpo_hud_proof.gif) | ![Twistor Slice](twistor_proof.gif) | ![Twistor Cloud](twistor_cloud_proof.gif) | ![Twistor Wave](twistor_wave_proof.gif) |
+| True $\mathbb{CP}^4$ Spinor & $\mathrm{erf}()$ HUD | Twistor Null-Cone Caustic Slice | Luminous $\mathbb{CP}^3/\mathbb{CP}^4$ Nebula | Standing Wave Harmonic Field |
+| :---: | :---: | :---: | :---: |
+| ![GPO Spinor HUD](twistor_gpo_hud_proof.gif) | ![Twistor Slice](twistor_proof.gif) | ![Twistor Cloud](twistor_cloud_proof.gif) | ![Twistor Wave](twistor_wave_proof.gif) |
 
 > **Mathematical Proof Note:** The first visual proof (`twistor_gpo_hud_proof.gif`) is rendered directly from `palatial_gpo_ray_optics.py` (`render_gpo_spinor_gif.py`) using exact 2-spinor Bloch ray bundles $\pi_{A'}$, scaled Minkowski Penrose incidence $\omega^A = \frac{i}{L_0} X^{AA'} \pi_{A'}$, GPO projector probabilities $(c_G, c_P, c_O)$, and continuous $\mathrm{erf}()$ radiative transfer with zero incidence defect.
 
