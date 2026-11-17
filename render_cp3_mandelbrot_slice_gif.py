@@ -21,7 +21,7 @@ def render_cp3_mandelbrot_frame(
     total_frames: int = 36,
     height: int = 360,
     width: int = 540,
-    iterations: int = 28
+    iterations: int = 44
 ) -> np.ndarray:
     """
     Renders a single frame of a zooming, phase-precessing CP^3 projective
@@ -58,8 +58,8 @@ def render_cp3_mandelbrot_frame(
         # Homogeneous degree-2 projective endomorphism on CP^3 (zero trig, zero overflow)
         next_omega_0 = (omega_0 * omega_0) + C_0 * (pi_0 * pi_0)
         next_omega_1 = (omega_1 * omega_1) + C_1 * (pi_1 * pi_1)
-        next_pi_0 = 2.0 * omega_0 * pi_0
-        next_pi_1 = 2.0 * omega_1 * pi_1
+        next_pi_0 = pi_0 * pi_0
+        next_pi_1 = pi_1 * pi_1
 
         proj_norm = torch.sqrt(
             (next_omega_0.abs() ** 2) +
@@ -162,3 +162,4 @@ def generate_cp3_mandelbrot_gif(
 if __name__ == "__main__":
     saved = generate_cp3_mandelbrot_gif()
     print(f"[SUCCESS] Generated native CP^3 Mandelbrot projection GIF: {saved}")
+
