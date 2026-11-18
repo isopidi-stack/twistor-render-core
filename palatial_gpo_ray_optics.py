@@ -798,8 +798,20 @@ def evaluate_analytical_cp3_fibration_bundle(
     ox_b, oy_b, oz_b = ox.unsqueeze(0), oy.unsqueeze(0), oz.unsqueeze(0)
     dx_b, dy_b, dz_b = dx.unsqueeze(0), dy.unsqueeze(0), dz.unsqueeze(0)
 
-    o_zp = oz_b.to(torch.complex128)
-    o_zm = (-oz_b).to(torch.complex128)
+    # Full 4D Minkowski Hermitian matrix X^{AA'} = X^0 * I_2 + X^i * sigma_i^{AA'}
+    # Evaluating the pure Robinson congruence (w0 = +b*pi0, w1 = -b*pi1) on the non-degenerate
+    # Minkowski spatial slice X^0 != 0 expands the null lines into a linked Villarceau/Clifford
+    # torus of major radius R = sqrt((X^0)^2 + b^2) * sin(theta_0) with sharp laser filaments!
+    X0_slice = torch.cat(
+        [
+            torch.full((M_outer, 1, 1), 0.92, dtype=dtype, device=device),
+            torch.full((M_inner, 1, 1), 0.48, dtype=dtype, device=device),
+        ],
+        dim=0,
+    ).to(torch.complex128)
+
+    o_zp = X0_slice + oz_b.to(torch.complex128)
+    o_zm = X0_slice - oz_b.to(torch.complex128)
     o_xp = (ox_b + 1j * oy_b).to(torch.complex128)
     o_xm = (ox_b - 1j * oy_b).to(torch.complex128)
 
@@ -816,8 +828,8 @@ def evaluate_analytical_cp3_fibration_bundle(
 
     sigma_sharpness = torch.cat(
         [
-            torch.full((M_outer, 1, 1), 46.0, dtype=dtype, device=device),
-            torch.full((M_inner, 1, 1), 58.0, dtype=dtype, device=device),
+            torch.full((M_outer, 1, 1), 240.0, dtype=dtype, device=device),
+            torch.full((M_inner, 1, 1), 280.0, dtype=dtype, device=device),
         ],
         dim=0,
     )
@@ -838,8 +850,8 @@ def evaluate_analytical_cp3_fibration_bundle(
         ana_int = optical_depth_k[:, sl, sl]
         quadrature_max_err = float(torch.max(torch.abs(ana_int - num_int)).item())
 
-    tau_outer_k = optical_depth_k[:M_outer] * 3.80
-    tau_inner_j = optical_depth_k[M_outer:] * 4.60
+    tau_outer_k = optical_depth_k[:M_outer] * 9.50
+    tau_inner_j = optical_depth_k[M_outer:] * 11.50
 
     A_out_safe = A_k[:M_outer].clamp(min=1e-12)
     A_in_safe = A_k[M_outer:].clamp(min=1e-12)
@@ -907,8 +919,8 @@ def benchmark_512x512_analytical_vs_numerical(ro: torch.Tensor, rd: torch.Tensor
 
         for step_i in range(n_march):
             s_val = tau1 + step_i * ds
-            sig_a = 3.80 * torch.exp(-(A_out * (s_val ** 2) + 2.0 * B_out * s_val + C_out).clamp(max=80.0)).sum(dim=0)
-            sig_g = 4.60 * torch.exp(-(A_in * (s_val ** 2) + 2.0 * B_in * s_val + C_in).clamp(max=80.0)).sum(dim=0)
+            sig_a = 9.50 * torch.exp(-(A_out * (s_val ** 2) + 2.0 * B_out * s_val + C_out).clamp(max=80.0)).sum(dim=0)
+            sig_g = 11.50 * torch.exp(-(A_in * (s_val ** 2) + 2.0 * B_in * s_val + C_in).clamp(max=80.0)).sum(dim=0)
             sig_t = (sig_a + sig_g).clamp(min=1e-15)
             dtau = sig_t * ds
             absorb = 1.0 - torch.exp(-dtau)
