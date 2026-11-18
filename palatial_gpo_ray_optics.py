@@ -491,9 +491,9 @@ def evaluate_analytical_cp3_fibration_bundle(
     dx, dy, dz = rd[..., 0], rd[..., 1], rd[..., 2]
     ox, oy, oz = ro[..., 0], ro[..., 1], ro[..., 2]
 
-    denom = torch.sqrt((2.0 * (1.0 - dz)).clamp(min=1e-12))
-    ray_pi0 = ((1.0 - dz) / denom).to(torch.complex128)
-    ray_pi1 = (-(dx + 1j * dy) / denom).to(torch.complex128)
+    denom = torch.sqrt((2.0 * (1.0 + dz)).clamp(min=1e-12))
+    ray_pi0 = ((1.0 + dz) / denom).to(torch.complex128)
+    ray_pi1 = (-(dx - 1j * dy) / denom).to(torch.complex128)
     ray_pi = torch.stack([ray_pi0, ray_pi1], dim=-1)
     null_invariance_err = independent_hermitian_null_invariance_check(ro, rd, ray_pi)
 
