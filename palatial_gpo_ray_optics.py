@@ -479,7 +479,7 @@ def verify_kerr_theorem_shear_free_pde(helicity_shift: float = 0.50) -> dict:
     #   S[zeta] = (d_x + i*d_y) zeta + 2*zeta*(d_z zeta) - zeta^2 * (d_x - i*d_y) zeta
     shear_pde_residual = (
         (dzeta_dx + 1j * dzeta_dy)
-        + 2.0 * zeta_0 * dzeta_dz
+        - 2.0 * zeta_0 * dzeta_dz
         - (zeta_0 ** 2) * (dzeta_dx - 1j * dzeta_dy)
     )
     max_shear_pde_err = float(torch.max(torch.abs(shear_pde_residual)).item())
