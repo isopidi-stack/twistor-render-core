@@ -1,4 +1,4 @@
-﻿"""
+"""
 twistor-render-core v6.5 — Controlled 512x512 Performance, Convergence & Pure Robinson Audit
 ============================================================================================
 Addresses all 4 findings and recommendations from the v6.4 audit:
@@ -28,7 +28,7 @@ def render_v65_hopf_robinson(
     width: int = 512,
     height: int = 512,
     num_frames: int = 48,
-    helicity_shift: float = 0.50,
+    helicity_shift: float = 0.85,
     camera_offset: float = 0.0,
     dump_npz: str = None,
     out_gif: str = "cp3_twistor_laser_filaments.gif",
@@ -226,7 +226,7 @@ def render_v65_hopf_robinson(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="v6.5 Analytical CP^3 Hopf-Robinson Twistor Renderer")
     parser.add_argument("--camera-offset", type=float, default=0.0, help="Perturb camera orbit radius")
-    parser.add_argument("--helicity-shift", type=float, default=0.50, help="Complex spacetime shift b^AA'")
+    parser.add_argument("--helicity-shift", type=float, default=0.85, help="Complex spacetime shift b^AA'")
     parser.add_argument("--dump-npz", type=str, default=None, help="Export raw float64 Frame 0 tensor buffer")
     parser.add_argument("--out", type=str, default="cp3_twistor_laser_filaments.gif", help="Output GIF filename")
     args = parser.parse_args()

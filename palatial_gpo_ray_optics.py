@@ -798,20 +798,22 @@ def evaluate_analytical_cp3_fibration_bundle(
     ox_b, oy_b, oz_b = ox.unsqueeze(0), oy.unsqueeze(0), oz.unsqueeze(0)
     dx_b, dy_b, dz_b = dx.unsqueeze(0), dy.unsqueeze(0), dz.unsqueeze(0)
 
-    # Full 4D Minkowski Hermitian matrix X^{AA'} = X^0 * I_2 + X^i * sigma_i^{AA'}
-    # Evaluating the pure Robinson congruence (w0 = +b*pi0, w1 = -b*pi1) on the non-degenerate
-    # Minkowski spatial slice X^0 != 0 expands the null lines into a linked Villarceau/Clifford
-    # torus of major radius R = sqrt((X^0)^2 + b^2) * sin(theta_0) with sharp laser filaments!
-    X0_slice = torch.cat(
+    # Complex Minkowski Robinson Slice X^{AA'} = -i * b_k * cos(theta_k) * I_2 + X^i * sigma_i^{AA'}:
+    # For the pure Robinson twistor w^0 = +b*pi_0, w^1 = -b*pi_1 with spinor tilt theta_k,
+    # the incidence equation w^A = i * X^{AA'} * pi_{A'} has exact real 3D null-line solutions
+    # X(s) = x_{0,k} + s * d_k on the Villarceau ring of radius R_k = b * sin(theta_k) when
+    # the complex time component is X^0 = -i * b_k * cos(theta_k):
+    #   i * (-i * b * cos(theta) + z) * pi_0 + i * (x + i*y) * pi_1 == b * pi_0  (exact 0 residual on the ring!)
+    b_k_vec = torch.cat(
         [
-            torch.full((M_outer, 1, 1), 0.92, dtype=dtype, device=device),
-            torch.full((M_inner, 1, 1), 0.48, dtype=dtype, device=device),
+            torch.full((M_outer, 1, 1), b_out * math.cos(1.05), dtype=dtype, device=device),
+            torch.full((M_inner, 1, 1), b_in * math.cos(0.78), dtype=dtype, device=device),
         ],
         dim=0,
-    ).to(torch.complex128)
+    )
 
-    o_zp = X0_slice + oz_b.to(torch.complex128)
-    o_zm = X0_slice - oz_b.to(torch.complex128)
+    o_zp = (oz_b - 1j * b_k_vec).to(torch.complex128)
+    o_zm = (-oz_b + 1j * b_k_vec).to(torch.complex128)
     o_xp = (ox_b + 1j * oy_b).to(torch.complex128)
     o_xm = (ox_b - 1j * oy_b).to(torch.complex128)
 
@@ -828,8 +830,8 @@ def evaluate_analytical_cp3_fibration_bundle(
 
     sigma_sharpness = torch.cat(
         [
-            torch.full((M_outer, 1, 1), 240.0, dtype=dtype, device=device),
-            torch.full((M_inner, 1, 1), 280.0, dtype=dtype, device=device),
+            torch.full((M_outer, 1, 1), 165.0, dtype=dtype, device=device),
+            torch.full((M_inner, 1, 1), 195.0, dtype=dtype, device=device),
         ],
         dim=0,
     )
