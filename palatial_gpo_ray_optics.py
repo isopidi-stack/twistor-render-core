@@ -745,7 +745,7 @@ def evaluate_analytical_cp3_fibration_bundle(
     # PURE Fixed-Displacement Robinson Incidence Relation: omega^0 = +b*pi_0, omega^1 = -b*pi_1
     # Zero extra phase terms! The Villarceau ring of throat radius R = b * tan(th_out) emerges
     # purely from the spinor cone (pi0_out, pi1_out) under omega = b * sigma_3 * pi!
-    b_out = float(helicity_shift)
+    b_out = float(helicity_shift) * 1.15
     w0_out = b_out * pi0_out
     w1_out = -b_out * pi1_out
 
@@ -762,7 +762,7 @@ def evaluate_analytical_cp3_fibration_bundle(
     pi0_in = torch.cos(th_in / 2.0) * torch.exp(+0.5j * phi_in.to(torch.complex128))
     pi1_in = torch.sin(th_in / 2.0) * torch.exp(-0.5j * phi_in.to(torch.complex128))
 
-    b_in = -0.55 * float(helicity_shift)
+    b_in = -0.62 * float(helicity_shift)
     w0_in = b_in * pi0_in
     w1_in = -b_in * pi1_in
 
@@ -813,7 +813,7 @@ def evaluate_analytical_cp3_fibration_bundle(
     )
 
     o_zp = (oz_b - 1j * b_k_vec).to(torch.complex128)
-    o_zm = (-oz_b + 1j * b_k_vec).to(torch.complex128)
+    o_zm = (-oz_b - 1j * b_k_vec).to(torch.complex128)
     o_xp = (ox_b + 1j * oy_b).to(torch.complex128)
     o_xm = (ox_b - 1j * oy_b).to(torch.complex128)
 
