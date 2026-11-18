@@ -487,9 +487,9 @@ def evaluate_analytical_cp3_fibration_bundle(
     s_back1 = (-p_dot_dxy + sqrt_disc1) / d_xy2
 
     # Analytical erf() path-length thickness through the toroidal shell along the ray
-    path_weight1 = torch.sqrt(math.pi / 55.0) * (
-        torch.special.erf(torch.sqrt(torch.tensor(55.0, dtype=dtype, device=device)) * (sqrt_disc1 / d_xy2 + 0.18))
-        - torch.special.erf(torch.sqrt(torch.tensor(55.0, dtype=dtype, device=device)) * (-0.18))
+    path_weight1 = math.sqrt(math.pi / 55.0) * (
+        torch.special.erf(math.sqrt(55.0) * (sqrt_disc1 / d_xy2 + 0.18))
+        - torch.special.erf(torch.tensor(math.sqrt(55.0) * (-0.18), dtype=dtype, device=device))
     )
 
     def eval_sheet_outer(s_root: torch.Tensor):
