@@ -812,33 +812,51 @@ def evaluate_analytical_cp3_fibration_bundle(
         dim=0,
     )
 
-    o_zp = (oz_b - 1j * b_k_vec).to(torch.complex128)
-    o_zm = (-oz_b - 1j * b_k_vec).to(torch.complex128)
+    # Construct the exact 3D null flagpole unit vector k_k = bar{pi}_k * sigma * pi_k / ||pi_k||^2
+    # for each twistor fiber k so that X^{AA'}(tau) is evaluated along the null light-cone
+    # X^0_k(tau) = k_k . x(tau). Because (k_k . x * I_2 + x . sigma)^{AA'} * pi_{k,A'} vanishes
+    # along the entire 3D direction k_k, each of the 28 twistors stretches from a point bead
+    # into a continuous, razor-sharp Villarceau laser filament!
+    kx_all = (2.0 * torch.real(pi0_all * torch.conj(pi1_all)) / pi_norm2_only).view(M_total, 1, 1)
+    ky_all = (2.0 * torch.imag(pi1_all * torch.conj(pi0_all)) / pi_norm2_only).view(M_total, 1, 1)
+    kz_all = ((torch.abs(pi0_all) ** 2 - torch.abs(pi1_all) ** 2) / pi_norm2_only).view(M_total, 1, 1)
+
+    # Light-cone time coordinate X^0_k = -k_k . x(tau) along camera ray x(tau) = o + tau * d
+    o_t0 = -(kx_all * ox_b + ky_all * oy_b + kz_all * oz_b)
+    d_t0 = -(kx_all * dx_b + ky_all * dy_b + kz_all * dz_b)
+
+    o_zp = (o_t0 + oz_b - 1j * b_k_vec).to(torch.complex128)
+    o_zm = (o_t0 - oz_b - 1j * b_k_vec).to(torch.complex128)
     o_xp = (ox_b + 1j * oy_b).to(torch.complex128)
     o_xm = (ox_b - 1j * oy_b).to(torch.complex128)
 
     u0 = w0 - 1j * (o_zp * p0 + o_xp * p1)
     u1 = w1 - 1j * (o_xm * p0 + o_zm * p1)
 
-    d_zp = dz_b.to(torch.complex128)
-    d_zm = (-dz_b).to(torch.complex128)
+    d_zp = (d_t0 + dz_b).to(torch.complex128)
+    d_zm = (d_t0 - dz_b).to(torch.complex128)
     d_xp = (dx_b + 1j * dy_b).to(torch.complex128)
     d_xm = (dx_b - 1j * dy_b).to(torch.complex128)
 
     v0 = -1j * (d_zp * p0 + d_xp * p1)
     v1 = -1j * (d_xm * p0 + d_zm * p1)
 
+    # Add a gentle longitudinal envelope along s_k(tau) = k_k . x(tau) so each null line
+    # forms a finite-length tangent laser filament of half-length L ~ 1.15 around the torus throat
     sigma_sharpness = torch.cat(
         [
-            torch.full((M_outer, 1, 1), 165.0, dtype=dtype, device=device),
-            torch.full((M_inner, 1, 1), 195.0, dtype=dtype, device=device),
+            torch.full((M_outer, 1, 1), 260.0, dtype=dtype, device=device),
+            torch.full((M_inner, 1, 1), 320.0, dtype=dtype, device=device),
         ],
         dim=0,
     )
 
-    A_k = sigma_sharpness * ((torch.abs(v0) ** 2 + torch.abs(v1) ** 2) / denom_Z)
-    B_k = sigma_sharpness * (torch.real(u0 * torch.conj(v0) + u1 * torch.conj(v1)) / denom_Z)
-    C_k = sigma_sharpness * ((torch.abs(u0) ** 2 + torch.abs(u1) ** 2) / denom_Z)
+    # Projective longitudinal coordinate s_long(tau) = -o_t0 - tau * d_t0 along each null fiber
+    # (invariant under Z_k -> lambda * Z_k because kx_all, ky_all, kz_all normalize by ||pi_k||^2!)
+    long_decay = 1.65
+    A_k = sigma_sharpness * ((torch.abs(v0) ** 2 + torch.abs(v1) ** 2) / denom_Z) + long_decay * (d_t0 ** 2)
+    B_k = sigma_sharpness * (torch.real(u0 * torch.conj(v0) + u1 * torch.conj(v1)) / denom_Z) + long_decay * (o_t0 * d_t0)
+    C_k = sigma_sharpness * ((torch.abs(u0) ** 2 + torch.abs(u1) ** 2) / denom_Z) + long_decay * (o_t0 ** 2)
 
     tau_min, tau_max = 0.20, 5.80
     optical_depth_k = stable_gaussian_line_integral(A_k, B_k, C_k, tau_min, tau_max)
