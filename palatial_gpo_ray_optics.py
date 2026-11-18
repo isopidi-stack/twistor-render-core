@@ -818,7 +818,7 @@ def evaluate_analytical_cp3_fibration_bundle(
     # along the entire 3D direction k_k, each of the 28 twistors stretches from a point bead
     # into a continuous, razor-sharp Villarceau laser filament!
     kx_all = (2.0 * torch.real(pi0_all * torch.conj(pi1_all)) / pi_norm2_only).view(M_total, 1, 1)
-    ky_all = (2.0 * torch.imag(pi1_all * torch.conj(pi0_all)) / pi_norm2_only).view(M_total, 1, 1)
+    ky_all = (-2.0 * torch.imag(pi1_all * torch.conj(pi0_all)) / pi_norm2_only).view(M_total, 1, 1)
     kz_all = ((torch.abs(pi0_all) ** 2 - torch.abs(pi1_all) ** 2) / pi_norm2_only).view(M_total, 1, 1)
 
     # Light-cone time coordinate X^0_k = -k_k . x(tau) along camera ray x(tau) = o + tau * d
@@ -845,15 +845,15 @@ def evaluate_analytical_cp3_fibration_bundle(
     # forms a finite-length tangent laser filament of half-length L ~ 1.15 around the torus throat
     sigma_sharpness = torch.cat(
         [
-            torch.full((M_outer, 1, 1), 260.0, dtype=dtype, device=device),
-            torch.full((M_inner, 1, 1), 320.0, dtype=dtype, device=device),
+            torch.full((M_outer, 1, 1), 420.0, dtype=dtype, device=device),
+            torch.full((M_inner, 1, 1), 520.0, dtype=dtype, device=device),
         ],
         dim=0,
     )
 
     # Projective longitudinal coordinate s_long(tau) = -o_t0 - tau * d_t0 along each null fiber
     # (invariant under Z_k -> lambda * Z_k because kx_all, ky_all, kz_all normalize by ||pi_k||^2!)
-    long_decay = 1.65
+    long_decay = 2.60
     A_k = sigma_sharpness * ((torch.abs(v0) ** 2 + torch.abs(v1) ** 2) / denom_Z) + long_decay * (d_t0 ** 2)
     B_k = sigma_sharpness * (torch.real(u0 * torch.conj(v0) + u1 * torch.conj(v1)) / denom_Z) + long_decay * (o_t0 * d_t0)
     C_k = sigma_sharpness * ((torch.abs(u0) ** 2 + torch.abs(u1) ** 2) / denom_Z) + long_decay * (o_t0 ** 2)
