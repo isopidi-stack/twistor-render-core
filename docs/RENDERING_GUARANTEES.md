@@ -67,3 +67,38 @@ The following values were measured in the reported test run on the reference mod
 - **Commands run:**
   - `& $Py -m unittest discover -s tests -p "test_congruence.py" -v`
   - `& $Py tests\diagnose_legacy_gpo_compat.py`
+---
+
+## 5. Intrinsic Conditioning vs. Numerical Evaluation Error (Bridge Lemma 3)
+
+Let $M = x^2 + y^2 + z^2 + b^2$ and $\delta = |\widehat{\Delta} - \Delta|$ for $\Delta = x^2 + y^2 + (z + ib)^2$ and $w^2 = \Delta$ with $w \ne 0$.
+
+### 5.1 Exact Geometric Conditioning (Away from $\mathcal{B}_b$)
+
+- **Tangent field $\mathbf{k}$:** The real $3 \times 3$ spatial Jacobian has singular values $\left(\frac{1}{|w|},\; \frac{1}{|w|},\; 0\right)$ (with the zero singular value along the geodesic direction $\mathbf{k}$), giving
+
+$$\boxed{\|\nabla\mathbf{k}\|_2 = \frac{1}{|w|}, \qquad \|\nabla\mathbf{k}\|_F^2 = \frac{2}{|w|^2}.}$$
+
+- **Covering root $w$ and optical scalar $\rho = \frac{1}{\bar{w}}$:** From $\nabla w = \frac{(x, y, z + ib)}{w}$ and $\nabla\rho = -\frac{\nabla\bar{w}}{\bar{w}^2}$, their spatial derivative norms satisfy
+
+$$\boxed{\|\nabla w\| = \frac{\sqrt{M}}{|w|}, \qquad \|\nabla\rho\| = \frac{\sqrt{M}}{|w|^3}.}$$
+
+Near the branch ring $\mathcal{B}_b$ for fixed $b \ne 0$, $\|\nabla\mathbf{k}\|_2 \sim |w|^{-1}$ and $\|\nabla\rho\| \sim \sqrt{2}|b|\,|w|^{-3}$, whereas strictly inside the lifted spanning disk ($z = 0$, $r = \sqrt{x^2+y^2} < |b|$), $|w| = \sqrt{b^2 - r^2} > 0$ is geometrically nonsingular.
+
+### 5.2 Conditional Arithmetic-Model Bounds and Sheet Continuation
+
+- **Conditional evaluation error of $\widehat{\Delta}$ and $\widetilde{w}$:** Under a **conditional arithmetic-model bound** assuming a specified floating-point operation graph, finite normal intermediates without overflow/underflow, and defined complex arithmetic handling, suppose $\delta = |\widehat{\Delta} - \Delta| \le \gamma_c M$ for a graph-specific constant $c$ (not a backend-independent theorem). With $\widehat{\Delta} = \Delta + e$ ($|e| \le \delta < |\Delta|$) and cancellation-amplification factor $\mathcal{C}_\Delta = \frac{M}{|\Delta|}$, the square root $\widetilde{w}$ analytically continued from $w$ satisfies
+
+$$\boxed{\frac{|\widetilde{w} - w|}{|w|} \le 1 - \sqrt{1 - \frac{\delta}{|\Delta|}} \le \frac{\delta}{|\Delta|},}$$
+
+with relative-error scale $\approx \frac{\delta}{2|\Delta|}$ for small perturbations (excluding branch-cut flips of a stateless principal square root or additional backend square-root rounding error).
+
+- **Sufficient condition for sheet continuation:** Selecting the root with positive real inner product against the preceding root is unambiguous when $\mu_n = \mathrm{Re}(w_n\overline{w_{n-1}}) > 0$, i.e., $|\arg(w_n/w_{n-1})| < \frac{\pi}{2}$. Given root error bounds $\varepsilon_n, \varepsilon_{n-1}$, sign selection is preserved under
+
+$$\boxed{\mathrm{Re}(w_n\overline{w_{n-1}}) > |w_n|\varepsilon_{n-1} + |w_{n-1}|\varepsilon_n + \varepsilon_n\varepsilon_{n-1}.}$$
+
+### 5.3 Two-Chart Handoff: Bounded Coordinates vs. Gauge Continuity
+
+- Because $1 + k_z \ge 1$ for $k_z \ge 0$ and $1 - k_z \ge 1$ for $k_z < 0$, the selected coordinate chart satisfies $\min(|\zeta|, |\eta|) \le 1$ without pole blow-up.
+- Because $\mathbf{m}_{\mathrm{N}}(1/\zeta) = \frac{\bar{\zeta}}{\zeta}\mathbf{m}_{\mathrm{S}}(\zeta)$ is a unitary phase transition rather than equality of raw frame components, numerical tests must verify both continuity of gauge-invariant quantities and explicit phase covariance of gauge-dependent screen quantities across chart switches.
+- **Open backend obligation:** Backend-specific numerical guarantees remain open until tested empirically on the target PyTorch backend with a higher-precision oracle, accounting for input representation, complex square-root algorithm, IEEE-754 exceptions, and graph constants.
