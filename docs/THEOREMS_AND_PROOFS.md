@@ -8,7 +8,7 @@
 
 ---
 
-## Theorem 1 — Two-Sheeted Covering and Screen-Frame Transition
+## Theorem 1 — Two-Sheeted Covering, Congruence Optics, and Screen-Frame Transition
 
 Let $b \in \mathbb{R} \setminus \{0\}$ and define
 
@@ -22,13 +22,13 @@ Define the two-sheeted covering space
 
 $$\widetilde{\Omega}_b = \{(\mathbf{x}, w) : \mathbf{x} \notin \mathcal{B}_b,\; w^2 = \Delta(\mathbf{x})\},$$
 
-with sheet involution $w \mapsto -w$. On the disk-cut complement
+with deck involution $\tau : (\mathbf{x}, w) \mapsto (\mathbf{x}, -w)$. On the disk-cut complement
 
 $$\Omega_b^{\mathrm{cut}} = \mathbb{R}^3 \setminus \{z = 0,\; x^2 + y^2 \le b^2\},$$
 
 $\Delta$ avoids the nonpositive real axis, so the principal square root is continuous there and selects the branch with $\operatorname{Re} w > 0$.
 
-### Established — Chart Transition
+### Established — Chart and Screen-Frame Transitions
 
 Where both denominators are nonzero, define
 
@@ -44,29 +44,93 @@ $$\boxed{\zeta \eta = 1}$$
 
 on the chart overlap.
 
-### Established — Screen-Frame Transition
+With
 
-Define
+$$\mathbf{m}_{\mathrm{S}}(\zeta) = \frac{(1 - \zeta^2,\; i(1 + \zeta^2),\; -2\zeta)}{\sqrt{2}(1 + |\zeta|^2)}, \qquad \mathbf{m}_{\mathrm{N}}(\eta) = \frac{(\eta^2 - 1,\; i(\eta^2 + 1),\; -2\eta)}{\sqrt{2}(1 + |\eta|^2)},$$
 
-$$\mathbf{m}_{\mathrm{S}}(\zeta) = \frac{(1 - \zeta^2,\; i(1 + \zeta^2),\; -2\zeta)}{\sqrt{2}(1 + |\zeta|^2)}$$
+substituting $\eta = 1/\zeta$ gives
 
-and
+$$\boxed{\mathbf{m}_{\mathrm{N}}(1/\zeta) = \frac{\bar{\zeta}}{\zeta}\,\mathbf{m}_{\mathrm{S}}(\zeta)},$$
 
-$$\mathbf{m}_{\mathrm{N}}(\eta) = \frac{(\eta^2 - 1,\; i(\eta^2 + 1),\; -2\eta)}{\sqrt{2}(1 + |\eta|^2)}.$$
+which has unit modulus ($\bar{\zeta}/\zeta = e^{-2i\phi}$ for $\zeta = |\zeta|e^{i\phi}$) and preserves complex screen orientation across the overlap.
 
-Substituting $\eta = 1/\zeta$ gives
+### Established — Congruence Tangent Field, Null Lift, Optical Tensor, and Sheet Transformation
 
-$$\boxed{\mathbf{m}_{\mathrm{N}}(1/\zeta) = \frac{\bar{\zeta}}{\zeta}\,\mathbf{m}_{\mathrm{S}}(\zeta)}.$$
+Writing $w = \alpha + i\beta$ ($\alpha, \beta \in \mathbb{R}$) with $\alpha^2 - \beta^2 = x^2 + y^2 + z^2 - b^2$ and $\alpha\beta = bz$, define the real unit vector field on $\widetilde{\Omega}_b$:
 
-For $\zeta = |\zeta|e^{i\phi}$, this phase factor has unit modulus ($\bar{\zeta}/\zeta = e^{-2i\phi}$), preserving complex screen orientation across the overlap.
+$$\mathbf{k} = \left(\frac{\alpha x + by}{\alpha^2 + b^2},\; \frac{\alpha y - bx}{\alpha^2 + b^2},\; \frac{\beta}{b}\right).$$
 
-### Proof Obligation — Optical Scalars
+Equipping $\mathbb{R}^{1,3}$ with Minkowski metric $g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1)$ and taking $L^\mu = \frac{1}{2}(1, -\mathbf{k})$ and $m^\mu = (0, \mathbf{m}_{\mathrm{S}})$ (so $K^2 = L^2 = 0$, $K \cdot L = 1$, and $m \cdot \bar{m} = -1$), the stationary four-dimensional null lift
 
-Deriving and certifying
+$$K^\mu = (1, k_x, k_y, k_z)$$
 
-$$\sigma = 0, \qquad \rho = \frac{1}{w}$$
+satisfies $K^\mu K_\mu = 1 - |\mathbf{k}|^2 = 0$ and $K^\nu \partial_\nu K^\mu = (0, (\mathbf{k}\cdot\nabla)\mathbf{k})$, so spatial geodesicity implies affine null geodesicity ($K^\nu \partial_\nu K^\mu = 0$). For spatial screen vectors $E_A^\mu = (0, \mathbf{e}_A)$, the covariant Minkowski screen projection satisfies $E_{A\mu} E_B^\nu \partial_\nu K^\mu = -e_A^i e_B^j \partial_j k_i = -B_{AB}$, so the Euclidean spatial tensor below corresponds to the null screen-projected gradient up to this explicit metric sign convention.
 
-requires an explicit congruence tangent field, derivative/projection operator, expansion/twist/shear sign conventions, and consistent sheet-to-sheet treatment on $\widetilde{\Omega}_b$.
+At any point where a local orthonormal frame $(\mathbf{e}_1, \mathbf{e}_2, \mathbf{k})$ is chosen to be right-handed, define the transverse gradient matrix
+
+$$B_{AB} = e_A^i e_B^j \partial_j k_i \qquad (A, B \in \{1, 2\}),$$
+
+with expansion $\theta$, twist $\omega$, complex shear $\sigma$, and complex optical scalar $\rho$ defined by
+
+$$\theta = \frac{1}{2}(B_{11} + B_{22}), \qquad \omega = \frac{1}{2}(B_{12} - B_{21}), \qquad \sigma = \frac{1}{2}(B_{11} - B_{22}) + \frac{i}{2}(B_{12} + B_{21}), \qquad \rho = \theta + i\omega.$$
+
+1. **Explicit derivatives on $\{\alpha \ne 0\}$:** From $w^2 = (z + ib)^2 + x^2 + y^2$, we have $\partial_x w = x/w$, $\partial_y w = y/w$, and $\partial_z w = (z + ib)/w$. On $\{\alpha \ne 0\}$, $\beta = bz/\alpha$, $x^2 + y^2 = \frac{(\alpha^2 + b^2)(\alpha^2 - z^2)}{\alpha^2}$, $k_x + ik_y = \frac{x + iy}{\alpha + ib}$, and $k_z = \frac{z}{\alpha}$:
+   - **Directional derivative and geodesicity:**
+
+$$\mathbf{k} \cdot \nabla w = \frac{1}{w}\left[\frac{\alpha(x^2 + y^2)}{\alpha^2 + b^2} + \frac{z(z + ib)}{\alpha}\right] = \frac{\alpha^2 + ibz}{\alpha w} = 1,$$
+
+so $\mathbf{k} \cdot \nabla \alpha = 1$, $\mathbf{k} \cdot \nabla \beta = 0$, $(\mathbf{k} \cdot \nabla)k_z = 0$, and $(\mathbf{k}\cdot\nabla)(k_x + ik_y) = \frac{(k_x + ik_y)(\alpha + ib) - (x + iy)(\mathbf{k}\cdot\nabla\alpha)}{(\alpha + ib)^2} = 0$, giving $(\mathbf{k} \cdot \nabla)\mathbf{k} = \mathbf{0}$.
+   - **Divergence:** Differentiating $\alpha = \operatorname{Re} w$ gives $\partial_x \alpha = \frac{x\alpha}{\alpha^2+\beta^2}$, $\partial_y \alpha = \frac{y\alpha}{\alpha^2+\beta^2}$, and $\partial_z \alpha = \frac{z(\alpha^2+b^2)}{\alpha(\alpha^2+\beta^2)}$. Summing $\partial_x k_x + \partial_y k_y = \operatorname{Re}\!\left[\frac{2}{\alpha+ib} - \frac{(x^2+y^2)\alpha}{(\alpha^2+\beta^2)(\alpha+ib)^2}\right]$ with $\partial_z k_z = \frac{1}{\alpha} - \frac{z^2(\alpha^2+b^2)}{\alpha^3(\alpha^2+\beta^2)}$ cancels all $z^2$ terms to leave
+
+$$\nabla \cdot \mathbf{k} = \frac{2\alpha}{\alpha^2 + \beta^2}.$$
+
+   - **Curl / Beltrami derivation:** Computing $(\nabla \times \mathbf{k})_z = \partial_x k_y - \partial_y k_x = \operatorname{Im}\!\left[\frac{2}{\alpha+ib} - \frac{(x^2+y^2)\alpha}{(\alpha^2+\beta^2)(\alpha+ib)^2}\right]$ gives
+
+$$\partial_x k_y - \partial_y k_x = -\frac{2b}{\alpha^2 + b^2} + \frac{2b(\alpha^2 - z^2)}{(\alpha^2 + \beta^2)(\alpha^2 + b^2)} = -\frac{2b(\beta^2 + z^2)}{(\alpha^2 + \beta^2)(\alpha^2 + b^2)}.$$
+
+Using $\beta^2 + z^2 = \frac{z^2(\alpha^2 + b^2)}{\alpha^2}$ and $\beta = bz/\alpha$ yields $(\nabla \times \mathbf{k})_z = -\frac{2\beta}{\alpha^2+\beta^2}\frac{z}{\alpha} = -\frac{2\beta}{\alpha^2+\beta^2}k_z$. Likewise, $\partial_y k_z = -\frac{yz}{\alpha(\alpha^2+\beta^2)}$ and $\partial_z(k_x + ik_y) = -\frac{(x+iy)\partial_z\alpha}{(\alpha+ib)^2} = -\frac{z(\alpha - ib)(x+iy)}{\alpha(\alpha^2+\beta^2)(\alpha+ib)}$, so
+
+$$(\nabla \times \mathbf{k})_x = \partial_y k_z - \partial_z k_y = -\frac{2\beta(\alpha x + by)}{(\alpha^2+\beta^2)(\alpha^2+b^2)} = -\frac{2\beta}{\alpha^2+\beta^2}k_x,$$
+
+and similarly $(\nabla \times \mathbf{k})_y = -\frac{2\beta}{\alpha^2+\beta^2}k_y$. Hence
+
+$$\nabla \times \mathbf{k} = -\frac{2\beta}{\alpha^2 + \beta^2}\,\mathbf{k}.$$
+
+For right-handed $(\mathbf{e}_1, \mathbf{e}_2, \mathbf{k})$, $B_{12} - B_{21} = -(\nabla \times \mathbf{k})\cdot\mathbf{k} = \frac{2\beta}{\alpha^2+\beta^2}$, so $\theta = \frac{\alpha}{\alpha^2+\beta^2}$, $\omega = \frac{\beta}{\alpha^2+\beta^2}$, and
+
+$$\boxed{\rho = \theta + i\omega = \frac{1}{\bar{w}}}.$$
+
+*(Convention note: $\rho = 1/w$ corresponds to redefining the complex scalar with the opposite twist sign, $\tilde{\rho} = \theta - i\omega$, rather than rotating $(\mathbf{e}_1, \mathbf{e}_2)$ within the oriented screen plane.)*
+
+2. **Global Frobenius norm and vanishing shear (no division by $\alpha$):** Set $u = x + iy$, $P = \alpha + ib$, $R^2 = \alpha^2 + \beta^2$, $f = k_x + ik_y = u/P$, and $k_z = \beta/b$. From $\partial_j w = \frac{\bar{w}(x, y, z + ib)_j}{R^2}$, we have $\partial_x \alpha = \frac{x\alpha}{R^2}$, $\partial_y \alpha = \frac{y\alpha}{R^2}$, $\partial_z \alpha = \frac{\alpha z + b\beta}{R^2}$, $\partial_x \beta = -\frac{x\beta}{R^2}$, $\partial_y \beta = -\frac{y\beta}{R^2}$, and $\partial_z \beta = \frac{b\alpha - \beta z}{R^2}$. Using $\alpha^2 - \beta^2 = |u|^2 + z^2 - b^2$ and $\alpha\beta = bz$ gives $b^2|u|^2 = |P|^2(b^2 - \beta^2)$, so with $s = 1 - \frac{\beta^2}{b^2}$ we have $\frac{|u|^2}{|P|^2} = s$ and $\frac{\beta^2}{b^2} = 1 - s$:
+   - *Horizontal block* $H = |\partial_x f|^2 + |\partial_y f|^2$: from $\partial_x f = \frac{1}{P} - \frac{u x \alpha}{R^2 P^2}$ and $\partial_y f = \frac{i}{P} - \frac{u y \alpha}{R^2 P^2}$, the cross-term sums to $-2\operatorname{Re}\!\left(\frac{|u|^2\alpha}{R^2|P|^2 P}\right) = -\frac{2|u|^2\alpha^2}{R^2|P|^4}$, giving
+
+$$H = \frac{2}{|P|^2} - \frac{2\alpha^2 s}{R^2|P|^2} + \frac{\alpha^2 s^2}{R^4} = \frac{2(1 - s)}{R^2} + \frac{\alpha^2 s^2}{R^4},$$
+
+since $R^2 - \alpha^2 s = \alpha^2(1 - s) + \beta^2 = \frac{\beta^2}{b^2}|P|^2$.
+   - *Mixed blocks:* since $(\alpha z + b\beta)^2 = |P|^2(\beta^2 + z^2)$ and $b^2(\beta^2 + z^2) = |P|^2\beta^2$, both mixed blocks are equal:
+
+$$|\partial_z f|^2 = \frac{|u|^2(\alpha z + b\beta)^2}{R^4|P|^4} = \frac{|u|^2\beta^2}{b^2 R^4} = (\partial_x k_z)^2 + (\partial_y k_z)^2,$$
+
+so their sum is $M_{\mathrm{mix}} = \frac{2|P|^2 s(1 - s)}{R^4}$.
+   - *Vertical square:* from $b^2 z^2 = \alpha^2\beta^2$, $(b\alpha - \beta z)^2 = b^2\alpha^2 s^2$, so $(\partial_z k_z)^2 = \frac{\alpha^2 s^2}{R^4}$.
+   - *Total sum:* combining $H + M_{\mathrm{mix}} + (\partial_z k_z)^2$ yields
+
+$$\sum_{i,j}(\partial_j k_i)^2 = \frac{2(1 - s)}{R^2} + \frac{2s}{R^4}\bigl[\alpha^2 s + (\alpha^2 + b^2)(1 - s)\bigr] = \frac{2(1 - s)}{R^2} + \frac{2s R^2}{R^4} = \frac{2}{R^2} = \frac{2}{\alpha^2 + \beta^2} = 2(\theta^2 + \omega^2).$$
+
+Because $M_{ij} = \partial_j k_i$ satisfies $k^i M_{ij} = 0$ and $k^j M_{ij} = 0$, its Frobenius norm equals $\sum_{A,B} B_{AB}^2 = 2(\theta^2 + \omega^2 + |\sigma|^2)$, forcing $|\sigma|^2 = 0$ and hence $\sigma = 0$.
+
+3. **Lemma — Smooth Extension Across $\widetilde{\Omega}_b$ by Density:** Because $b \ne 0$ implies $\alpha^2 + b^2 \ge b^2 > 0$ and $w \ne 0$ everywhere on $\widetilde{\Omega}_b$, both $\mathbf{k}$ and $dw = \frac{x\,dx + y\,dy + (z + ib)\,dz}{w}$ are smooth across the spanning-disk lift $\{z = 0,\; x^2 + y^2 < b^2\}$ where $\alpha = 0$. Since $\{\alpha \ne 0\}$ is open and dense in $\widetilde{\Omega}_b$, the smooth identities
+
+$$\boxed{(\mathbf{k} \cdot \nabla)\mathbf{k} = \mathbf{0}, \qquad \sigma = 0, \qquad \rho = \frac{1}{\bar{w}}}$$
+
+extend by continuity to the entire two-sheeted covering space $\widetilde{\Omega}_b$.
+
+4. **Deck transformation law:** Under $\tau : w \mapsto -w$ (so $\alpha \mapsto -\alpha$, $\beta \mapsto -\beta$),
+
+$$\boxed{\mathbf{k} \circ \tau = \left(\frac{-\alpha x + by}{\alpha^2 + b^2},\; \frac{-\alpha y - bx}{\alpha^2 + b^2},\; -\frac{\beta}{b}\right)}, \qquad \rho \circ \tau = -\rho.$$
+
+In general, $\mathbf{k} \circ \tau \ne -\mathbf{k}$ (for example, at $(x,y,z) = (2,0,0)$ with $b = 1$ and $w = \sqrt{3}$, the two tangent vectors are $(\frac{\sqrt{3}}{2}, -\frac{1}{2}, 0)$ and $(-\frac{\sqrt{3}}{2}, -\frac{1}{2}, 0)$, not antipodal).
 
 ---
 
