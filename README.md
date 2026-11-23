@@ -30,7 +30,7 @@ Project Penrose is currently opening discussions with select early-stage venture
 
 * **Verification Suite:** 30 / 30 Numerical and Topological Regression Gates Passed (`python -B -O`, IEEE-754 `float64` / `complex128`).
 * **Cryptographic Baseline Lock:** Pinned via dual 64-character SHA-256 digests (`v3` geometry baseline and `v4.4` adversarial suite) with pre-import in-memory byte verification.
-* **Documentation & Specification:** For complete mathematical proofs, differential geometry derivations, and PyTorch reference implementations, see [PROJECT_PENROSE_CALIBRATION_SPEC.md](PROJECT_PENROSE_CALIBRATION_SPEC.md).
+* **Documentation & Specification:** For complete mathematical proofs, differential geometry derivations, and PyTorch reference implementations, see [twistor/](twistor/) and [examples/robot_su22_calibration.py](examples/robot_su22_calibration.py).
 
 ---
 
