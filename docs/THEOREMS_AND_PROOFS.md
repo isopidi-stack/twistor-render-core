@@ -196,3 +196,56 @@ Substituting the recovered $(a, c, b)$ into the forward formulas reproduces the 
 
 - **Numerical regression & SHA-256 checks:** Reported regression suites and digests verify consistency on tested configurations and pinned files; they do not substitute for formal proofs or establish historical novelty.
 - **Architectural & scientific scope:** Non-raster / gimbal-free design choices do not establish infinite precision or universal renderer superiority, and separate hypotheses (such as $\mathbb{C}^5$ extensions or quantum-number interpretations) are outside Theorems 1 and 2.
+
+---
+
+## Bridge Lemma 4 — Conditional Sheet Continuation and Adaptive Step Control
+
+### Lemma 4A (Exact Robinson-Ray Phase Margin and Safe-Step Criterion)
+
+Along an exact forward Robinson congruence ray ($w(s) = w_0 + s = \alpha(s) + i\beta(s)$, $\beta_n = \mathrm{Im}(w_n)$ constant) with step $h > 0$ and $w_{n+1} = w_n + h$, the exact phase margin $\mu_n = \mathrm{Re}(w_{n+1}\overline{w_n})$ satisfies
+
+$$\boxed{\mu_n = |w_n|^2 + h\alpha_n = \alpha_n(\alpha_n + h) + \beta_n^2.}$$
+
+Consequently, in exact arithmetic, $\mu_n > 0$ holds if and only if
+
+$$\boxed{\begin{cases} h > 0, & \alpha_n \ge 0, \\[4pt] 0 < h < \dfrac{|w_n|^2}{-\alpha_n} = -\alpha_n + \dfrac{\beta_n^2}{-\alpha_n}, & \alpha_n < 0. \end{cases}}$$
+
+When $\beta_n \ne 0$ and $\alpha_n < 0$, the exact ray crosses the lifted spanning disk ($\alpha = 0$) smoothly without meeting $\mathcal{B}_b$; failure of $\mu_n > 0$ for $h \ge |w_n|^2 / (-\alpha_n)$ is an **algorithmic phase-step failure**, not a geometric singularity. When $\beta_n = 0$ and $\alpha_n < 0$, $h = -\alpha_n$ hits $w = 0$ on the branch ring $\mathcal{B}_b$.
+
+### Lemma 4B (Perturbation-Stable Endpoint Sign Selection)
+
+Let $\mathbf{x}(s)$ be a continuous trajectory in $\mathbb{R}^3 \setminus \mathcal{B}_b$ with an **initial sheet assignment** at $s_0$ and exact analytically continued roots $w_n = w(s_n)$ and $w_{n+1} = w(s_{n+1})$ along the segment $[s_n, s_{n+1}]$. Suppose computed approximations $\widehat{w}_n, \widehat{w}_{n+1}$ (for the correctly matched roots) satisfy $|\widehat{w}_n - w_n| \le \varepsilon_n$ and $|\widehat{w}_{n+1} - w_{n+1}| \le \varepsilon_{n+1}$, and inner-product evaluation incurs rounding error at most $\delta_{\mathrm{ip}} \ge 0$. Writing $\widehat{w}_k = w_k + \eta_k$ ($|\eta_k| \le \varepsilon_k$) gives
+
+$$\widehat{w}_{n+1}\overline{\widehat{w}_n} - w_{n+1}\overline{w_n} = \eta_{n+1}\overline{w_n} + w_{n+1}\overline{\eta_n} + \eta_{n+1}\overline{\eta_n},$$
+
+so $|\widehat{\mu}_n - \mu_n| \le E_n = |w_n|\varepsilon_{n+1} + |w_{n+1}|\varepsilon_n + \varepsilon_n\varepsilon_{n+1}$. Whenever
+
+$$\boxed{\mu_n > E_n + \delta_{\mathrm{ip}},}$$
+
+the numerically evaluated inner product strictly satisfies $\widehat{\mu}_n > 0$, preserving the sign of the endpoint inner product.
+
+**Path-continuation qualification:** For a general continuous trajectory, positive endpoint inner product alone does **not** prove that the selected endpoint root matches analytic continuation along $[s_n, s_{n+1}]$, because a curved path can wind around $\mathcal{B}_b$ and change sheets while returning to a positive endpoint inner product. Establishing sheet continuation on a general path requires a separately proved bound restricting phase variation (no branch-locus winding) across the entire intervening segment. In the exact straight Robinson-ray setting of Lemmas 4A and 4C, $w(s_n + t) = w_n + t$ ($t \in [0, h]$) moves along a straight line in $\mathbb{C}$ and cannot wind around $0$ once segment clearance $d_{\min} > 0$ holds.
+
+### Lemma 4C (Computable A-Priori Criteria and Mandatory Segment Clearance for Robinson Rays)
+
+Along a forward Robinson ray ($w(s_n + t) = w_n + t$ for $t \in [0, h]$), let $a = \widehat{w}_n$ satisfy $|a - w_n| \le \varepsilon_n$, and assume the computed endpoint candidate root lies within $\varepsilon_{\mathrm{cand}} = \varepsilon_{n+1}$ of one of the two exact roots $\pm w_{n+1}$ (where $\varepsilon_{\mathrm{cand}}$ must enclose all errors arising from the computed endpoint $\mathbf{x}_n + h\mathbf{k}$, evaluation of $\Delta$, and the complex square root).
+
+1. **Mandatory segment-clearance condition:** The exact minimum distance to the singular root $w = 0$ along the segment $t \in [0, h]$ is
+$$\boxed{d_{\min} = \min_{t \in [0, h]} |w_n + t| = \sqrt{\beta_n^2 + \mathrm{dist}(-\alpha_n, [0, h])^2}.}$$
+Because $|(w_n + t) - (a + t)| = |w_n - a| \le \varepsilon_n$ uniformly in $t$, the computable lower bound
+$$\boxed{d_{\min}^{\mathrm{lower}}(h) = \max\!\left(0,\; \sqrt{(\mathrm{Im}\,a)^2 + \mathrm{dist}(-\mathrm{Re}\,a, [0, h])^2} - \varepsilon_n\right) \le d_{\min}}$$
+must satisfy $d_{\min}^{\mathrm{lower}}(h) > \tau_{\mathrm{clear}} \ge 0$ to ensure the entire ray segment avoids $\mathcal{B}_b$.
+
+2. **Robinson-ray phase-margin criterion (4C-1):** With $P(h) = |a|^2 + h\,\mathrm{Re}(a)$ and $\overline{E}_n(h) = (|a| + \varepsilon_n)\varepsilon_{n+1} + (|a + h| + \varepsilon_n)\varepsilon_n + \varepsilon_n\varepsilon_{n+1}$,
+$$\boxed{P(h) - \varepsilon_n(2|a| + \varepsilon_n + h) > \overline{E}_n(h) + \delta_{\mathrm{ip}} + \tau_{\mathrm{guard}}}$$
+is a computable sufficient condition guaranteeing $\mu_n > E_n + \delta_{\mathrm{ip}}$ prior to sign selection.
+
+3. **Exact-ray predictor criterion (4C-2):** Let $p = \widehat{w}_{\mathrm{pred}} = \mathrm{fl}(a + h)$ satisfy $|p - w_{n+1}| \le \varepsilon_{\mathrm{pred}}$ (with $\varepsilon_{\mathrm{pred}} = \varepsilon_n + \delta_{\mathrm{add}}$ supplied as a precondition bounding both the stored-root error on the correct sheet and predictor addition roundoff), let $r_+$ denote the correctly matched candidate ($|r_+ - w_{n+1}| \le \varepsilon_{\mathrm{cand}}$) and $r_- = -r_+$ its opposite, and set $q = \varepsilon_{\mathrm{pred}} + \varepsilon_{\mathrm{cand}}$. By the triangle inequality,
+$$|r_+ - p| \le q, \qquad |r_- - p| \ge 2|w_{n+1}| - q,$$
+so the exact distance separation satisfies
+$$D = |r_- - p| - |r_+ - p| \ge 2|w_{n+1}| - 2q.$$
+If computing the distance difference incurs absolute rounding error at most $\delta_{\mathrm{cmp}} \ge 0$, strict positivity of the computed difference is guaranteed whenever $2|w_{n+1}| - 2q > \delta_{\mathrm{cmp}}$, i.e., $|w_{n+1}| > q + \tfrac{1}{2}\delta_{\mathrm{cmp}}$. Combining this with $|w_{n+1}| \ge |p| - \varepsilon_{\mathrm{pred}}$ and adding a conservative guard $\tau_{\mathrm{guard}} \ge 0$ yields the computable sufficient condition
+$$\boxed{|p| > 2\varepsilon_{\mathrm{pred}} + \varepsilon_{\mathrm{cand}} + \tfrac{1}{2}\delta_{\mathrm{cmp}} + \tau_{\mathrm{guard}}.}$$
+
+**Conditional certification note:** Lemma 4C guarantees sheet preservation only when (i) the caller supplies valid conservative enclosures for $\varepsilon_n, \delta_{\mathrm{add}}, \varepsilon_{\mathrm{cand}}, \delta_{\mathrm{ip}}, \delta_{\mathrm{cmp}}$ accounting for position, ray-step, $\Delta$, complex-square-root, and comparison errors relative to the exact Robinson-ray endpoint, and (ii) the inequalities themselves are evaluated without overflow via outward-rounded interval arithmetic or another justified enclosure method. Ordinary `float64` evaluation is empirical rather than backend-certified. $\square$

@@ -264,3 +264,443 @@ def villarceau_circle_to_robinson_ray(gamma_u: torch.Tensor, tol: float = 1e-8) 
         "center": center,
         "radius": radius,
     }
+
+# ---------------------------------------------------------------------------
+# Bridge Lemma 4 — Conditional Sheet Continuation & Adaptive Step Controller
+# ---------------------------------------------------------------------------
+
+from dataclasses import dataclass as _dataclass
+from typing import Callable as _Callable, Literal as _Literal
+
+ContinuationMethod = _Literal["phase_margin", "ray_predictor", "dual"]
+SatisfiedBy = _Literal["both", "phase_margin", "ray_predictor", "none"]
+
+
+def _require_finite_positive(val: float, name: str) -> float:
+    f = float(val)
+    if not math.isfinite(f) or f <= 0.0:
+        raise ValueError(f"{name} must be finite and positive, got {val}.")
+    return f
+
+
+def _require_finite_nonneg(val: float, name: str) -> float:
+    f = float(val)
+    if not math.isfinite(f) or f < 0.0:
+        raise ValueError(f"{name} must be finite and nonnegative, got {val}.")
+    return f
+
+
+def _require_nonneg_int(val: int, name: str) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 0:
+        raise ValueError(f"{name} must be a nonnegative integer (not bool), got {val!r}.")
+    return val
+
+
+def _require_scalar_complex(t: torch.Tensor, name: str, require_finite: bool = True) -> torch.Tensor:
+    c = t.to(dtype=torch.complex128)
+    if c.ndim != 0:
+        raise ValueError(f"{name} must be a scalar (0-D) complex tensor, got shape {tuple(c.shape)}.")
+    if require_finite and not bool(torch.isfinite(c).all().item()):
+        raise ValueError(f"{name} must contain a finite complex value.")
+    return c
+
+
+def _require_vec3_real(t: torch.Tensor, name: str) -> torch.Tensor:
+    if t.is_complex():
+        raise ValueError(f"{name} must be a real-valued tensor, got complex dtype {t.dtype}.")
+    v = t.to(dtype=torch.float64)
+    if v.shape != (3,):
+        raise ValueError(f"{name} must be a 3-component vector with shape (3,), got {tuple(v.shape)}.")
+    if not bool(torch.isfinite(v).all().item()):
+        raise ValueError(f"{name} must contain only finite values.")
+    return v
+
+
+@_dataclass(frozen=True)
+class SheetStepResult:
+    """
+    Structured diagnostics for a Bridge Lemma 4 adaptive ray-continuation step.
+
+    Note: Criterion flags indicate whether the Lemma 4C inequalities held in finite float64
+    under the caller-supplied error bounds; they do not by themselves establish
+    backend-certified enclosures or verify exact ray-endpoint geometry.
+    """
+
+    accepted: bool
+    satisfied_by: SatisfiedBy
+    phase_criterion_satisfied: bool
+    predictor_criterion_satisfied: bool
+    clearance_satisfied: bool
+    segment_clearance: float
+    selected_root: torch.Tensor | None
+    pos_next: torch.Tensor | None
+    h_used: float
+    subdivisions: int
+    reason: str
+    phase_sign: int | None = None
+    predictor_sign: int | None = None
+
+
+def ray_segment_clearance_bounds(
+    w_hat: torch.Tensor,
+    h: float,
+    eps_curr: float,
+    min_clearance: float = 0.0,
+) -> tuple[float, bool]:
+    """
+    Mandatory Bridge Lemma 4C segment-clearance lower bound along w(s_n + t) = w_n + t, t in [0, h]:
+        d_min_hat   = sqrt(Im(w_hat)^2 + dist(-Re(w_hat), [0, h])^2)
+        d_min_lower = max(0, d_min_hat - eps_curr)
+    An overflowing clearance evaluation cannot authorize acceptance (returns False).
+    """
+    h_val = _require_finite_positive(h, "h")
+    e0 = _require_finite_nonneg(eps_curr, "eps_curr")
+    c_min = _require_finite_nonneg(min_clearance, "min_clearance")
+    w_c128 = _require_scalar_complex(w_hat, "w_hat")
+
+    a = complex(w_c128.item())
+    neg_alpha = -a.real
+    if neg_alpha < 0.0:
+        dist_re = -neg_alpha
+    elif neg_alpha > h_val:
+        dist_re = neg_alpha - h_val
+    else:
+        dist_re = 0.0
+    d_min_hat = math.hypot(a.imag, dist_re)
+    d_min_lower = max(0.0, d_min_hat - e0)
+    if not (math.isfinite(dist_re) and math.isfinite(d_min_hat) and math.isfinite(d_min_lower)):
+        return 0.0, False
+    return d_min_lower, (d_min_lower > c_min)
+
+
+def phase_margin_step_bounds(
+    w_hat: torch.Tensor,
+    h: float,
+    eps_curr: float,
+    eps_next: float,
+    ip_roundoff: float = 0.0,
+    guard: float = 0.0,
+) -> tuple[float, float, bool]:
+    """
+    Lemma 4C-1 Robinson-ray phase-margin criterion (specific to w_{n+1} = w_n + h):
+        P(h)      = |a|^2 + h * Re(a)
+        mu_lower  = P(h) - eps_curr * (2*|a| + eps_curr + h)
+        E_bar(h)  = (|a| + eps_curr)*eps_next + (|a + h| + eps_curr)*eps_curr + eps_curr*eps_next
+    An overflowing evaluation cannot itself authorize acceptance (returns criterion_satisfied=False).
+    """
+    h_val = _require_finite_positive(h, "h")
+    e0 = _require_finite_nonneg(eps_curr, "eps_curr")
+    e1 = _require_finite_nonneg(eps_next, "eps_next")
+    d_ip = _require_finite_nonneg(ip_roundoff, "ip_roundoff")
+    g_val = _require_finite_nonneg(guard, "guard")
+    w_c128 = _require_scalar_complex(w_hat, "w_hat")
+
+    a = complex(w_c128.item())
+    a_abs = abs(a)
+    a_sq = a_abs * a_abs
+    h_re = h_val * a.real
+    p_h = a_sq + h_re
+    pen = e0 * (2.0 * a_abs + e0 + h_val)
+    mu_lower = p_h - pen
+    ap_abs = abs(a + h_val)
+    e_bar = ((a_abs + e0) * e1) + ((ap_abs + e0) * e0) + (e0 * e1)
+    threshold = e_bar + d_ip + g_val
+
+    intermediates = (a_abs, a_sq, h_re, p_h, pen, mu_lower, ap_abs, e_bar, threshold)
+    if not all(math.isfinite(v) for v in intermediates):
+        return mu_lower, threshold, False
+    return mu_lower, threshold, (mu_lower > threshold)
+
+
+def ray_predictor_step_bounds(
+    w_hat: torch.Tensor,
+    h: float,
+    eps_pred: float,
+    eps_cand: float,
+    cmp_roundoff: float = 0.0,
+    guard: float = 0.0,
+) -> tuple[float, float, bool]:
+    """
+    Lemma 4C-2 exact Robinson-ray predictor criterion for p = w_hat + h:
+        |p| > 2*eps_pred + eps_cand + 0.5*cmp_roundoff + guard
+    An overflowing evaluation cannot itself authorize acceptance (returns criterion_satisfied=False).
+    """
+    h_val = _require_finite_positive(h, "h")
+    ep = _require_finite_nonneg(eps_pred, "eps_pred")
+    ec = _require_finite_nonneg(eps_cand, "eps_cand")
+    d_cmp = _require_finite_nonneg(cmp_roundoff, "cmp_roundoff")
+    g_val = _require_finite_nonneg(guard, "guard")
+    w_c128 = _require_scalar_complex(w_hat, "w_hat")
+
+    a = complex(w_c128.item())
+    p_c = a + h_val
+    pred_mag = abs(p_c)
+    threshold = (2.0 * ep) + ec + (0.5 * d_cmp) + g_val
+    if not (math.isfinite(p_c.real) and math.isfinite(p_c.imag) and math.isfinite(pred_mag) and math.isfinite(threshold)):
+        return pred_mag, threshold, False
+    return pred_mag, threshold, (pred_mag > threshold)
+
+
+def adaptive_continue_ray_step(
+    pos: torch.Tensor,
+    k_dir: torch.Tensor,
+    prev_w: torch.Tensor,
+    h: float,
+    b: float,
+    eps_curr: float,
+    eps_next: float,
+    method: ContinuationMethod = "dual",
+    pred_add_roundoff: float = 0.0,
+    ip_roundoff: float = 0.0,
+    cmp_roundoff: float = 0.0,
+    guard: float = 0.0,
+    min_clearance: float = 0.0,
+    max_subdivisions: int = 16,
+    candidate_root_fn: _Callable[[torch.Tensor, float], torch.Tensor] | None = None,
+) -> SheetStepResult:
+    """
+    Adaptive Robinson-ray sheet-continuation controller implementing Lemma 4C
+    with mandatory segment clearance and method in {"phase_margin", "ray_predictor", "dual"}.
+
+    Failure policy:
+      - Invalid input shapes/dtypes (including complex pos/k_dir or bool/non-int max_subdivisions),
+        non-finite caller arguments, or a non-scalar candidate tensor raise ValueError.
+      - Non-finite candidate-root values (NaN/inf), non-finite step intermediates, insufficient
+        clearance, or step halving underflow (reason="step_underflow") return a controlled rejection.
+      - An overflowing criterion (or overflowing selector arithmetic for that criterion) cannot
+        itself authorize acceptance, without blocking a finite complementary selector in dual mode.
+
+    Preconditions (caller-supplied, not derived by this controller):
+      - eps_curr bounds |prev_w - w_n| on the intended sheet.
+      - pred_add_roundoff bounds predictor addition rounding so eps_pred = eps_curr + pred_add_roundoff.
+      - eps_next encloses candidate-root error arising from the computed endpoint pos + h*k_dir,
+        Delta evaluation, and complex sqrt.
+    """
+    if method not in ("phase_margin", "ray_predictor", "dual"):
+        raise ValueError(f"Unsupported method: {method}")
+    max_subs = _require_nonneg_int(max_subdivisions, "max_subdivisions")
+
+    _validate_b(b)
+    h_try = _require_finite_positive(h, "h")
+    e0 = _require_finite_nonneg(eps_curr, "eps_curr")
+    e1 = _require_finite_nonneg(eps_next, "eps_next")
+    d_add = _require_finite_nonneg(pred_add_roundoff, "pred_add_roundoff")
+    d_ip = _require_finite_nonneg(ip_roundoff, "ip_roundoff")
+    d_cmp = _require_finite_nonneg(cmp_roundoff, "cmp_roundoff")
+    g_val = _require_finite_nonneg(guard, "guard")
+    c_min = _require_finite_nonneg(min_clearance, "min_clearance")
+
+    pos64 = _require_vec3_real(pos, "pos")
+    k64 = _require_vec3_real(k_dir, "k_dir")
+    prev_c = _require_scalar_complex(prev_w, "prev_w")
+
+    eps_pred = e0 + d_add
+    if not math.isfinite(eps_pred):
+        raise ValueError("eps_curr + pred_add_roundoff overflowed to non-finite.")
+    eval_cand = candidate_root_fn if candidate_root_fn is not None else (lambda p, bv: torch.sqrt(delta(p, bv)))
+
+    last_h_tried = h_try
+    last_clearance = 0.0
+    last_clearance_ok = False
+    last_phase_ok = False
+    last_pred_ok = False
+    last_reason = "uncertified_after_subdivision"
+
+    for sub in range(max_subs + 1):
+        last_h_tried = h_try
+        clearance, clearance_ok = ray_segment_clearance_bounds(
+            prev_c, h_try, eps_curr=e0, min_clearance=c_min
+        )
+        _, _, phase_ok = phase_margin_step_bounds(
+            prev_c, h_try, eps_curr=e0, eps_next=e1, ip_roundoff=d_ip, guard=g_val
+        )
+        _, _, pred_ok = ray_predictor_step_bounds(
+            prev_c, h_try, eps_pred=eps_pred, eps_cand=e1, cmp_roundoff=d_cmp, guard=g_val
+        )
+        last_clearance, last_clearance_ok, last_phase_ok, last_pred_ok = (
+            clearance, clearance_ok, phase_ok, pred_ok
+        )
+
+        step_eval_ready = True
+        if not clearance_ok:
+            last_reason = "insufficient_segment_clearance"
+            step_eval_ready = False
+
+        if step_eval_ready:
+            pos_next = pos64 + h_try * k64
+            if not bool(torch.isfinite(pos_next).all().item()):
+                last_reason = "non_finite_intermediate"
+                step_eval_ready = False
+
+        if step_eval_ready:
+            w_cand = _require_scalar_complex(eval_cand(pos_next, b), "candidate_root", require_finite=False)
+            if not bool(torch.isfinite(w_cand).all().item()):
+                last_reason = "non_finite_candidate_root"
+                step_eval_ready = False
+
+        if step_eval_ready:
+            # Isolate phase-margin and predictor selector arithmetic so overflow in one
+            # selector does not poison the complementary selector in dual mode.
+            ip_val = float((w_cand.real * prev_c.real + w_cand.imag * prev_c.imag).item())
+            if math.isfinite(ip_val):
+                phase_sign: int | None = 1 if ip_val >= 0.0 else -1
+                phase_root: torch.Tensor | None = w_cand if phase_sign == 1 else -w_cand
+            else:
+                phase_sign = None
+                phase_root = None
+                phase_ok = False
+                last_phase_ok = False
+
+            w_pred = prev_c + h_try
+            if bool(torch.isfinite(w_pred).all().item()):
+                d_plus = float(torch.abs(w_cand - w_pred).item())
+                d_minus = float(torch.abs(-w_cand - w_pred).item())
+            else:
+                d_plus = float("inf")
+                d_minus = float("inf")
+
+            if math.isfinite(d_plus) and math.isfinite(d_minus):
+                pred_sign: int | None = 1 if d_plus <= d_minus else -1
+                pred_root: torch.Tensor | None = w_cand if pred_sign == 1 else -w_cand
+            else:
+                pred_sign = None
+                pred_root = None
+                pred_ok = False
+                last_pred_ok = False
+
+            if method == "phase_margin":
+                if phase_ok and phase_root is not None:
+                    return SheetStepResult(
+                        accepted=True,
+                        satisfied_by="phase_margin",
+                        phase_criterion_satisfied=phase_ok,
+                        predictor_criterion_satisfied=pred_ok,
+                        clearance_satisfied=clearance_ok,
+                        segment_clearance=clearance,
+                        selected_root=phase_root,
+                        pos_next=pos_next,
+                        h_used=h_try,
+                        subdivisions=sub,
+                        reason="phase_margin_criterion_satisfied",
+                        phase_sign=phase_sign,
+                        predictor_sign=pred_sign,
+                    )
+                last_reason = "phase_margin_criterion_not_satisfied"
+            elif method == "ray_predictor":
+                if pred_ok and pred_root is not None:
+                    return SheetStepResult(
+                        accepted=True,
+                        satisfied_by="ray_predictor",
+                        phase_criterion_satisfied=phase_ok,
+                        predictor_criterion_satisfied=pred_ok,
+                        clearance_satisfied=clearance_ok,
+                        segment_clearance=clearance,
+                        selected_root=pred_root,
+                        pos_next=pos_next,
+                        h_used=h_try,
+                        subdivisions=sub,
+                        reason="ray_predictor_criterion_satisfied",
+                        phase_sign=phase_sign,
+                        predictor_sign=pred_sign,
+                    )
+                last_reason = "ray_predictor_criterion_not_satisfied"
+            else:  # method == "dual"
+                if phase_ok and pred_ok and phase_root is not None and pred_root is not None:
+                    if phase_sign != pred_sign:
+                        return SheetStepResult(
+                            accepted=False,
+                            satisfied_by="none",
+                            phase_criterion_satisfied=True,
+                            predictor_criterion_satisfied=True,
+                            clearance_satisfied=clearance_ok,
+                            segment_clearance=clearance,
+                            selected_root=None,
+                            pos_next=None,
+                            h_used=h_try,
+                            subdivisions=sub,
+                            reason="invariant_violation_dual_sign_disagreement",
+                            phase_sign=phase_sign,
+                            predictor_sign=pred_sign,
+                        )
+                    return SheetStepResult(
+                        accepted=True,
+                        satisfied_by="both",
+                        phase_criterion_satisfied=True,
+                        predictor_criterion_satisfied=True,
+                        clearance_satisfied=clearance_ok,
+                        segment_clearance=clearance,
+                        selected_root=phase_root,
+                        pos_next=pos_next,
+                        h_used=h_try,
+                        subdivisions=sub,
+                        reason="dual_criteria_satisfied_with_agreement",
+                        phase_sign=phase_sign,
+                        predictor_sign=pred_sign,
+                    )
+                if pred_ok and pred_root is not None:
+                    return SheetStepResult(
+                        accepted=True,
+                        satisfied_by="ray_predictor",
+                        phase_criterion_satisfied=False,
+                        predictor_criterion_satisfied=True,
+                        clearance_satisfied=clearance_ok,
+                        segment_clearance=clearance,
+                        selected_root=pred_root,
+                        pos_next=pos_next,
+                        h_used=h_try,
+                        subdivisions=sub,
+                        reason="predictor_satisfied_phase_inconclusive",
+                        phase_sign=phase_sign,
+                        predictor_sign=pred_sign,
+                    )
+                if phase_ok and phase_root is not None:
+                    return SheetStepResult(
+                        accepted=True,
+                        satisfied_by="phase_margin",
+                        phase_criterion_satisfied=True,
+                        predictor_criterion_satisfied=False,
+                        clearance_satisfied=clearance_ok,
+                        segment_clearance=clearance,
+                        selected_root=phase_root,
+                        pos_next=pos_next,
+                        h_used=h_try,
+                        subdivisions=sub,
+                        reason="phase_satisfied_predictor_inconclusive",
+                        phase_sign=phase_sign,
+                        predictor_sign=pred_sign,
+                    )
+                last_reason = "dual_neither_criterion_satisfied"
+
+        if sub == max_subs:
+            break
+
+        h_next = h_try * 0.5
+        if h_next <= 0.0 or not math.isfinite(h_next):
+            return SheetStepResult(
+                accepted=False,
+                satisfied_by="none",
+                phase_criterion_satisfied=last_phase_ok,
+                predictor_criterion_satisfied=last_pred_ok,
+                clearance_satisfied=last_clearance_ok,
+                segment_clearance=last_clearance,
+                selected_root=None,
+                pos_next=None,
+                h_used=last_h_tried,
+                subdivisions=sub,
+                reason="step_underflow",
+            )
+        h_try = h_next
+
+    return SheetStepResult(
+        accepted=False,
+        satisfied_by="none",
+        phase_criterion_satisfied=last_phase_ok,
+        predictor_criterion_satisfied=last_pred_ok,
+        clearance_satisfied=last_clearance_ok,
+        segment_clearance=last_clearance,
+        selected_root=None,
+        pos_next=None,
+        h_used=last_h_tried,
+        subdivisions=max_subs,
+        reason=last_reason,
+    )
