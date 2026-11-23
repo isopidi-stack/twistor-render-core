@@ -249,3 +249,20 @@ If computing the distance difference incurs absolute rounding error at most $\de
 $$\boxed{|p| > 2\varepsilon_{\mathrm{pred}} + \varepsilon_{\mathrm{cand}} + \tfrac{1}{2}\delta_{\mathrm{cmp}} + \tau_{\mathrm{guard}}.}$$
 
 **Conditional certification note:** Lemma 4C guarantees sheet preservation only when (i) the caller supplies valid conservative enclosures for $\varepsilon_n, \delta_{\mathrm{add}}, \varepsilon_{\mathrm{cand}}, \delta_{\mathrm{ip}}, \delta_{\mathrm{cmp}}$ accounting for position, ray-step, $\Delta$, complex-square-root, and comparison errors relative to the exact Robinson-ray endpoint, and (ii) the inequalities themselves are evaluated without overflow via outward-rounded interval arithmetic or another justified enclosure method. Ordinary `float64` evaluation is empirical rather than backend-certified. $\square$
+
+---
+
+## Bridge Lemma 5 — Stereographic Screen-Gauge Covariance and Invariant Transport
+
+Let $\mathbf{k} \in S^2$ be a fixed Robinson-congruence direction on a specified covering sheet, and let $\mathbf{m}_{\mathrm{S}}, \mathbf{m}_{\mathrm{N}}$ be normalized complex screen frames satisfying
+
+$$\mathbf{m}_{\mathrm{N}}(1/\zeta) = \frac{\bar{\zeta}}{\zeta}\,\mathbf{m}_{\mathrm{S}}(\zeta)$$
+
+on the stereographic overlap ($\zeta = \frac{k_x + i k_y}{1 + k_z}$, $\eta = \frac{k_x - i k_y}{1 - k_z} = \frac{1}{\zeta}$ for $\mathbf{k} \notin \{(0,0,\pm 1)\}$).
+
+1. **Unitary inverse transition:** Setting $\Phi_{\mathrm{S}\to\mathrm{N}}(\zeta) = \frac{\bar{\zeta}}{\zeta}$ gives $|\Phi_{\mathrm{S}\to\mathrm{N}}(\zeta)| = 1$ and inverse transition $\Phi_{\mathrm{N}\to\mathrm{S}}(1/\zeta) = \Phi_{\mathrm{S}\to\mathrm{N}}(\zeta)^{-1} = \overline{\Phi_{\mathrm{S}\to\mathrm{N}}(\zeta)}$ on the overlap.
+2. **Spin-weight covariance:** A screen quantity built from $p$ factors of $\mathbf{m}$ and $q$ factors of $\bar{\mathbf{m}}$ has spin weight $s = p - q$ under $Q_{\mathrm{N}} = \Phi^s Q_{\mathrm{S}}$ (e.g., $Z = \mathbf{u}\cdot\mathbf{m} \mapsto \Phi Z$, $\bar{Z} \mapsto \bar{\Phi}\bar{Z}$, $Z^2 \mapsto \Phi^2 Z^2$, and $Z\bar{Z}$ invariant).
+3. **Hermitian invariance for equal spin weight:** For screen frames or quantities sharing spin weight $s$ ($\mathbf{m}_{\mathrm{N}} = \Phi^s \mathbf{m}_{\mathrm{S}}$, $\mathbf{n}_{\mathrm{N}} = \Phi^s \mathbf{n}_{\mathrm{S}}$, $|\Phi| = 1$), Hermitian inner products and norms satisfy $\overline{\mathbf{m}_{\mathrm{N}}}\cdot\mathbf{n}_{\mathrm{N}} = \bar{\Phi}^s \Phi^s (\overline{\mathbf{m}_{\mathrm{S}}}\cdot\mathbf{n}_{\mathrm{S}}) = \overline{\mathbf{m}_{\mathrm{S}}}\cdot\mathbf{n}_{\mathrm{S}}$.
+4. **Metric, area-transport, and optical-scalar invariance on a fixed sheet:** For a fixed covering sheet, the transverse metric, infinitesimal Robinson-ray area transport $\frac{A(s)}{A(s_0)} = \frac{|w(s)|^2}{|w(s_0)|^2}$, and intrinsic optical scalars ($\rho = 1/\bar{w}$, expansion $\theta = \mathrm{Re}\,\rho$, twist $\omega = \mathrm{Im}\,\rho$) are invariant across stereographic chart handoffs (and vary with the covering-sheet sign $w \mapsto -w$ when changing sheets).
+5. **Shear-free invariance vs. shear-coefficient covariance:** The shear-free condition ($\sigma = 0$) is gauge-invariant across charts, whereas a general nonzero complex shear coefficient transforms covariantly with its spin weight under screen-frame rotation.
+6. **Algebraic identity vs. numerical handoff:** These statements are exact algebraic and geometric identities on the stated domain; numerical chart-handoff residuals $R_{\mathrm{handoff}} = \|\mathbf{m}_{\mathrm{N}}(1/\zeta) - (\bar{\zeta}/\zeta)\mathbf{m}_{\mathrm{S}}(\zeta)\|_2$ and chart-selection conditioning (selecting $\zeta$ for $k_z \ge 0$ and $\eta$ for $k_z < 0$ yields $|\text{selected coordinate}| \le 1$, while the unused chart degenerates near a pole) require separately justified floating-point error bounds. $\square$
