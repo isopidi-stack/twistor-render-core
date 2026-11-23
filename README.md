@@ -1,40 +1,27 @@
-# Project Penrose (`twistor-render-core`)
+# Argon (`twistor-render-core`)
 
-**An Experimental, Cryptographically Verified Computational-Geometry & Ray-Optics Engine**  
-*Built on Spinor Calculus, Penrose Twistor Incidence, and Analytical Congruence Evaluation.*
+Argon (`twistor-render-core`) is a computational geometry and rendering engine exploring spinor/twistor parameterizations, Robinson congruences, and Hopf–Villarceau circle correspondences.
 
----
+For full theorem statements, proof status, and scope boundaries, see **[`docs/THEOREMS_AND_PROOFS.md`](docs/THEOREMS_AND_PROOFS.md)**.
 
-## Overview & Commercial Status
+## Mathematical Status at a Glance
 
-**Project Penrose** is an advanced computational-geometry and volumetric ray-optics engine designed to explore non-discretized, analytical spatial representations. Conventional 3D graphics and optical simulation pipelines rely heavily on spatial tessellation meshes, depth-buffer ($Z$-buffer) rasterization, and cascaded Euler/matrix rotations that accumulate numerical drift and orientation singularities (gimbal lock). 
+The repository maintains a strict separation between **established algebraic derivations**, **explicit proof obligations**, and **numerical or architectural verification**:
 
-Project Penrose investigates a complementary mathematical architecture:
-* **Analytical Ray Fields:** Representing twisted, shear-free ray families directly through projective spinor ratios $(\zeta, \eta) \in \mathbb{CP}^1$ and Hermitian spacetime incidence matrices $X^{AA'}$, eliminating $Z$-buffer discretization and Euler gimbals within the evaluated domain.
-* **The "Golden Penrose Ruler" (Argon v4.4 Metrology Suite):** To ensure strict mathematical rigor and eliminate unchecked error propagation in AI-assisted workflows, Project Penrose enforces an immutable, hash-pinned 30-gate verification harness (`argon_geometry_audit.py` and `argon_v44_adversarial_audit.py`). Every geometric kernel is benchmarked against machine-precision ($\sim 10^{-16}$) algebraic invariants, round-trip forward/inverse ray reconstructions, and finite-difference convergence gates before integration.
+- **Theorem 1 — Covering & Screen-Frame Transition:**
+  - *Established:* The two-sheeted covering $\widetilde{\Omega}_b$ over $\mathbb{R}^3 \setminus \mathcal{B}_b$, disk-cut domain $\Omega_b^{\mathrm{cut}}$ with continuous branch selection ($\operatorname{Re} w > 0$), chart transition $\zeta\eta = 1$ on overlaps, and screen-frame phase relation $\mathbf{m}_{\mathrm{N}}(1/\zeta) = (\bar{\zeta}/\zeta)\mathbf{m}_{\mathrm{S}}(\zeta)$.
+  - *Proof obligation:* Full derivation and sign/sheet certification of the optical scalars $\sigma = 0$ and $\rho = 1/w$ from an explicit congruence tangent field and optical projection/derivative operator.
+- **Theorem 2 — Restricted Robinson–Villarceau Correspondence ($\mathcal{D}_{\mathrm{Rob}} \leftrightarrow \mathcal{V}_{\mathrm{Rob}}$):**
+  - *Established:* Forward map from rays in $\mathcal{D}_{\mathrm{Rob}}$ to $(\zeta, b) \in \mathbb{C}^* \times \mathbb{R}^*$, finiteness of the stereographic image, origin-passing plane $Z = aX - cY$ with normal $\mathbf{N} = (-a, c, 1)$, radial extrema relation $r_{\max} r_{\min} = b^2$, exact 3D circle center $\mathbf{C}_{\zeta,b} = (bc, ba, 0)$ and radius $R_{\zeta,b} = |b|\sqrt{1 + |\zeta|^2}$, distinct unparameterized $+b / -b$ point sets for $\zeta \ne 0, b \ne 0$, signed-$b$ recovery from the circle center and plane normal scaled to third component $1$, and explicit reconstruction of $(\mathbf{k}, \mathbf{x}_0)$ back into $\mathcal{D}_{\mathrm{Rob}}$.
+  - *Proof obligation:* Independent geometric characterization and surjectivity if the target circle family is defined outside the forward image of $\mathcal{D}_{\mathrm{Rob}}$.
 
----
+## Scope & Evidence Boundaries
 
-## Seeking Seed & Strategic Investment
+- **Numerical & integrity verification:** Regression suites and SHA-256 baseline checks verify consistency on tested configurations and pinned files; they do not substitute for formal proofs or establish historical novelty.
+- **Architectural claims:** Using a non-raster, gimbal-free geometric formulation is an architectural choice rather than proof of infinite precision or universal superiority over conventional renderers.
+- **Extended hypotheses:** Any higher-dimensional/five-component twistor extensions or quantum-number interpretations sit outside Theorems 1 and 2 unless explicitly formalized and verified.
 
-Project Penrose is currently opening discussions with select early-stage venture investors, angel syndicates, and technical partners who recognize the long-term value of high-integrity scientific computing, precision optical metrology, and novel rendering paradigms.
+## Repository Layout
 
-### Commercial & Technical Applications Under Evaluation
-1. **Precision Optical & Wavefront Metrology:** Analytical benchmarking for non-paraxial ray tracing, twisted optical beams, and structured light fields where zero-shear ($\sigma \equiv 0$) and exact phase/vorticity tracking ($\rho = \theta + i\omega = 1/w$) serve as ground-truth calibration standards.
-2. **Compact Algebraic Scene & Field Encodings:** Parameterizing complex 3D ruled hyperboloidal fields and linked toroidal fibers via low-dimensional spinor and twistor coordinates rather than dense voxel or triangle meshes.
-3. **High-Integrity AI Engineering Workflows:** Demonstrating a reproducible, adversarial test-gated development model where software components are cryptographically locked to historical reference manifests.
-
----
-
-## Verification & Metrology Status
-
-* **Verification Suite:** 30 / 30 Numerical and Topological Regression Gates Passed (`python -B -O`, IEEE-754 `float64` / `complex128`).
-* **Cryptographic Baseline Lock:** Pinned via dual 64-character SHA-256 digests (`v3` geometry baseline and `v4.4` adversarial suite) with pre-import in-memory byte verification.
-* **Documentation & Specification:** For complete mathematical proofs, differential geometry derivations, and PyTorch reference implementations, see [twistor/](twistor/) and [examples/robot_su22_calibration.py](examples/robot_su22_calibration.py).
-
----
-
-## Licensing & Copyright
-
-Copyright © 2026 Ivan Nikolayevich Sopidi. All rights reserved.  
-Distributed under the repository source-available research license. Commercial licensing inquiries should be directed to the project owner.
+- `docs/THEOREMS_AND_PROOFS.md` — Formal theorem statements, proof status, and scope boundaries.
+- `argon_geometry_audit.py`, `argon_v4_adversarial_audit.py`, `argon_v44_adversarial_audit.py` — Audit and regression scripts (keep frozen/untouched when preserving established hashes).
