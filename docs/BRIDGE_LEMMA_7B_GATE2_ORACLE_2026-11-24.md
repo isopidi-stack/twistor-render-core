@@ -85,3 +85,48 @@ L7B_INDIRECT_CALL_CONFIRMED 0x8da1ba1 call qword ptr [r12] return_rva= 0x8da1ba5
 The local Git worktree was again unchanged: five previously untracked files and no tracked modifications.
 
 **Limit:** this is **static instruction identification only**. Neither the total number of callbacks through this site nor membership of each `delta()` operation has been established. A CDB execution trace with per-operation markers, callback target capture and MXCSR is the next test. The claim that *all* complex128 or conversion operations pass through this one site remains unproved.
+
+
+## Gate 3B callback discovery — runtime evidence (2026-11-24)
+
+The operator supplied an approximately 898-line **CDB/PowerShell console transcript** for a pinned Windows `torch_cpu.dll` run (expected SHA-256 `b8ec43a4ff24435c93a8a7710f9cf3fe1f246d923abbd7549064c8ba26afc642`, validated by its PowerShell launch guard). The DLL loaded at base `0x31AF0000`. CDB set a breakpoint at `torch_cpu+0x8DA1BA1`, previously validated as `call qword ptr [r12]` in `TensorIteratorBase::serial_for_each`; the breakpoint command printed `r9`, `mxcsr`, and callback target `poi(@r12)-torch_cpu`.
+
+The transcript also contains a **second PowerShell summary that reprints the same breakpoints**. Counting only original runtime lines gives **23 genuine `L7B_SERIAL_CALL` breakpoint hits**:
+
+| Observed mode/phase | Hits | `r9` | Qualification |
+| --- | ---: | ---: | --- |
+| `scalar_3d_contig` | 7 | 1 | Scalar coordinate views (0D) |
+| Setup between scalar modes | 1 | 3 | Occurs before `BEGIN_7B_MODE scalar_3d_strided`; consistent with a stride-2 buffer copy, but not individually tagged |
+| `scalar_3d_strided` | 7 | 1 | Scalar coordinate views (0D) |
+| `batched_8x3_contig` | 8 | 8 | One additional kernel callback versus scalar case |
+| **Total** | **23** | | |
+
+Every one of these **23** breakpoint stops reported `MXCSR=0x00001fa0` (round-to-nearest-even, FTZ and DAZ off, sticky inexact flag). This establishes the floating-point environment **at the indirect-call boundary**, not yet at every instruction inside each callback.
+
+### Callback entry RVAs observed at the indirect-call site
+
+| Callback entry RVA | Genuine hits | Grouping / limitations |
+| --- | ---: | --- |
+| `0x0D2F56F0` | 3 | One per main `delta()` evaluation |
+| `0x0D3238A0` | 3 | One per main evaluation; entry is a jump thunk |
+| `0x0D323840` | 6 | Two per main evaluation; entry is a jump thunk |
+| `0x0CA3B670` | 3 | One per main evaluation; entry is a jump thunk |
+| `0x0AEE9D90` | 3 | One per main evaluation |
+| `0x0CA3B5D0` | 3 | One per main evaluation; entry is a jump thunk |
+| `0x0D262BA0` | 1 | Inter-mode setup callback, `r9=3` |
+| `0x0D2203F0` | 1 | Additional callback in batched case, `r9=8` |
+| **Total** | **23** | |
+
+The seven shared callbacks occur in the same order for both scalar modes and the batch. **Per-operation identifications are not yet individually tagged in the CDB stream**; based on the source expression, their order suggests complex construction, complex product, two real products, real sum, real→complex conversion, final complex addition. The batched-only extra callback may be initialization/fill but remains to be identified by operation-specific instrumentation. Several call targets are jump thunks, so disassembly of only their first eight instructions is insufficient to prove the arithmetic graph.
+
+Some decoded callback addresses were assigned misleading nearby stripped-DLL symbolic names such as `torch::xpu::synchronize` or `torch::nnapi::bind`; these are **not evidence that an XPU/NNAPI device was used**. Prefer RVA plus verified instruction bytes.
+
+### Completion and limitations
+
+The three modes each reported matching output bits for the discriminating first-row input: real `3cd0000000000000`, imaginary `4012000000000001`.
+
+The driver printed `ALL_7B_DISCOVERY_MODES_COMPLETED` and launcher `CDB exit code: 0`. Git status remained unchanged: five original untracked files and **no tracked modifications**.
+
+**Gate 3B status:** complete for **callback discovery at this one serial-for-each call site**; not a full dynamic instruction proof. The script armed the breakpoint at module load and used an indirect executable-address watch (`ba e 1`), rather than an explicit DebugBreak after warm-up. Other execution pathways bypassing this site have not been excluded. No actual scalar/AVX2/FMA arithmetic opcode hit counters were collected.
+
+**Next:** resolve observed callback RVA jump thunks, decode each resolved PE `.pdata`-bounded function, identify FP64 arithmetic instructions, then place targeted **runtime breakpoints at actual arithmetic instructions**, checking alternative branches/calls before certifying any error constant. `candidate_7b_discriminant_bound_float64` stays `status="unresolved"`; `all_certified=False`.
