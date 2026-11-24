@@ -211,3 +211,12 @@ The inspected four root bodies each contain conditional dispatch paths and exter
 **Unresolved scalar problem:** Gate 3D's 20 selected packed arithmetic sites recorded no hits in the `n=1` modes, even though the driver completed and produced valid output. The immediate-callee list by itself does not identify the executed scalar arithmetic instructions. Avoid asserting the scalar real/complex arithmetic graph or generalizing a no-FMA statement from the `n=8` selected sites.
 
 **Next experiment:** instrument the newly discovered four arithmetic RVAs **and** the immediate-callee entry RVAs on the pinned build, with explicit mode and MXCSR log attribution. For scalar path proof, analyze further dynamic branch/control flow from the callback bodies, following indirect/tail targets as necessary. Maintain `candidate_7b_discriminant_bound_float64` as `unresolved` and `all_certified=False`.
+
+
+## Gate 3F attempted run — breakpoints not armed (2026-11-24)
+
+The operator supplied the actual debugger log `lemma7b_gate3f_helpers_02.log` and matching PowerShell console transcript. The downloaded log was independently SHA-256 verified as `8e7e3cbbe72127abae0d4bc72f5206b044c0510c63f99ad59b4c985cb575ff6c`, exactly matching the operator-reported hash. The log shows `torch_cpu.dll` loading successfully at the pinned image base and CDB's direct disassembly at `torch_cpu+0xD342B60` producing `vmulpd ymm0,ymm2,[rdx+rcx-0x20]`; later disassembly of `torch_cpu+0xCA3CA3E` produced `vfmadd231pd`. However, the CDB command file containing the breakpoints was **never invoked** at the DLL-load stop. The operator entered `g` immediately after the first successful `u`; the driver then completed all three modes with the expected bits, without instrumentation.
+
+Neither the actual debugger log nor the console transcript contains `L7B_GATE3F_SETUP`, `L7B3F_DISPATCH`, `L7B3F_FP_`, or `L7B3F_HELPER_` markers. Thus **zero successful Gate 3F breakpoint hits** were collected. The recorded CDB exit code 0 does not imply breakpoint-trace success.
+
+**Status:** `Gate 3F NOT EXECUTED` (invalid instrumentation attempt; DLL load and two static disassembly instructions only). A correct retry must invoke the already-preserved `lemma7b_gate3f_helpers_01.cdb` at the `1:005` stop immediately after `ModLoad ... torch_cpu.dll`, confirm its setup marker and 14 enabled resolved breakpoints, and only then issue `g`. Preserve the failed run log and do not change `all_certified=False`.
