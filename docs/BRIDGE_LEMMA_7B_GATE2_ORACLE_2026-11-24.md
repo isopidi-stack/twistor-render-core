@@ -64,3 +64,24 @@ For the `z_near_b_fma_probe` with `z=nextafter(1.5,+inf)`, `b=1.5`, `x=y=0`, bot
 - Outward-rounded bound implementation: simply constructing exact `u=2^-53` as a Decimal does not guarantee future Decimal arithmetic is upward-rounded without an appropriate context.
 
 **Next gate:** isolate relevant ATen operations on the pinned runtime and map the actual complex128/real scalar instruction paths with CDB, using the above FMA discriminator as a cross-check. Keep `candidate_7b_discriminant_bound_float64` unresolved and `all_certified=False`. No unreviewed source or raw memory-address logs should be published on the public repository.
+
+
+## Gate 3A: verified TensorIterator indirect call site (static; no execution claim)
+
+On the pinned DLL (SHA-256 above), the operator ran a **read-only Capstone decoding script** using the independently pinned `bridge_lemma_7a_bounded_callgraph.py` helper and isolated Capstone installation. The decoded executable window `0x8DA1B70–0x8DA1BA5` ends with:
+
+```asm
+0x8DA1B99  mov rdx, rax
+0x8DA1B9C  mov rcx, qword ptr [r12 + 8]
+0x8DA1BA1  call qword ptr [r12]   ; return RVA 0x8DA1BA5
+```
+
+The script checked that the instruction ending at `0x8DA1BA5` is exactly one **indirect** `call` whose operand is memory, and that the call lies in the PE `.pdata` function range `0x8DA1B30–0x8DA1FE9`. It reported:
+
+```text
+L7B_INDIRECT_CALL_CONFIRMED 0x8da1ba1 call qword ptr [r12] return_rva= 0x8da1ba5 function_range= ('0x8da1b30', '0x8da1fe9')
+```
+
+The local Git worktree was again unchanged: five previously untracked files and no tracked modifications.
+
+**Limit:** this is **static instruction identification only**. Neither the total number of callbacks through this site nor membership of each `delta()` operation has been established. A CDB execution trace with per-operation markers, callback target capture and MXCSR is the next test. The claim that *all* complex128 or conversion operations pass through this one site remains unproved.
