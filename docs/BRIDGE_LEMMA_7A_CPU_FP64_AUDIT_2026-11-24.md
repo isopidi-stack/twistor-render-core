@@ -120,3 +120,32 @@ An operator-provided PowerShell transcript records successful source-to-staging 
 - Archive contents intended: `repo/` (five files), `evidence/` (eight files), and `SHA256_MANIFEST.csv`
 
 **Evidence limitations:** only the console transcript was provided in chat, **not the ZIP bytes**. This records a successful local packaging action, not independent verification of ZIP-entry integrity or an off-device/cloud backup. The 13 file bytes remain absent from this GitHub branch. Do not report the source code or raw logs as pushed until they are reviewed and uploaded intentionally.
+
+## Archive integrity independently verified (uploaded ZIP)
+
+The actual ZIP bytes were subsequently uploaded to the audit conversation and inspected in a filesystem-backed Python runtime. Validation was **not** limited to ZIP directory metadata:
+
+- Full ZIP byte length: **74,150**; SHA-256: `fcbb0f2224b34d21b7b2f4ebcbe13f5d20bf2161fac610a7686ada186488034d`, matching the operator's recorded digest.
+- All **14 ZIP members readable**; CRC integrity scan reported no corrupt member.
+- Uncompressed payload size: **413,858 bytes**.
+- `SHA256_MANIFEST.csv`: **13 data rows**.
+- All **13/13 decompressed payload SHA-256 hashes matched their manifest rows**.
+- No unexpected or missing archive entries. ZIP member names use Windows backslash separators.
+
+The ZIP is confirmed intact **as supplied to the conversation**. It is **not** stored in this public GitHub branch, and an independent durable/off-machine copy remains a separate action.
+
+### Source review — provisional, not a backend certification
+
+All five Python files in `repo\\` were parsed and compiled without syntax error in the reviewing Python 3.13 environment. The three older Argon audit scripts appear to be separate, frozen/adversarial gates; the raw SHA-256 of `argon_geometry_audit.py` was verified to match the literal baseline pinned by `argon_v44_adversarial_audit.py`, and its BOM/CRLF-normalized hash checks also matched.
+
+Review of `twistor/backend_certification.py` and `tests/test_backend_certification.py` identified an important **model-vs-runtime certification gap**:
+
+1. `verify_7a_graph_capability` matches a declared `GraphSpec` by string/field comparison; `capture_runtime_backend` records environment details but does **not** enforce the pinned DLL SHA-256, PyTorch `2.15.0+cpu`, CPU-only device, one-thread regime, or MXCSR parity.
+2. `bound_7a_ray_advance_euclidean_float64` can label its result `analytic_proven` based on the declared graph and arithmetic-range check alone. This must be represented as a **conditional model bound**, not automatically as live backend certification. It also silently converts arbitrary real input tensor dtypes to float64 instead of enforcing the narrow tested input contract.
+3. The normal/subnormal rejection compares the **upper endpoint** of an absolute-product/sum interval against the minimum normal value. A fail-closed implementation should reject whenever the interval might intersect a nonzero subnormal regime, not only when its upper bound is already subnormal. This must be reviewed before promoting the gate.
+4. `candidate_7b_discriminant_bound_float64` explicitly marks its scale-based `12uM` estimate `unresolved`. The partial `BackendErrorBudget` keeps 7B–7D unresolved and `all_certified=False`; this is correct and must be preserved.
+5. The bundled unit tests cover cancellation/underflow/overflow, legacy-file hash, GraphSpec mismatch, Decimal outward conversion and non-promotion of unresolved 7B–7D, but **do not prove the pinned runtime instruction path**, which was established separately by CDB.
+
+**Commit policy:** do not silently promote these preliminary source files to the production branch. Review/repair the runtime-versus-model certification distinction and add negative tests first. Keep the three frozen Argon scripts byte-for-byte intact. No raw debugger logs are published in this documentation-only PR.
+
+**7B next experiment:** inspect and bound the exact `twistor.congruence.delta` operation graph (complex128 `(z+ib)^2` plus real `x*x+y*y`), including the backend's complex multiplication/addition semantics, before attempting to upgrade `12uM` from candidate to certified. Use a high-precision exact-input oracle, adversarial cancellation cases, and fail-closed overflow/underflow checks. Retain `all_certified=False` until all obligations pass.
