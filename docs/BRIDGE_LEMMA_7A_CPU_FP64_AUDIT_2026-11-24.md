@@ -98,7 +98,7 @@ The raw logs and scripts are still stored under `%USERPROFILE%\Downloads` on the
 
 **Out of scope:** `n=4..7` four-way-unrolled scalar loops; `n>=8` vectorized/FMA execution; arbitrary shapes/strides; other CPU builds or ISA dispatch configurations; multithreading and MXCSR of worker threads (potentially beyond a `0x8000`-element grain); nonfinite/overflow/underflow cases; and full-renderer correctness.
 
-**Local worktree at last report:** no tracked changes; five existing, untracked files, not yet committed or copied by this manifest:
+**Local worktree at last report:** no tracked changes; five existing, untracked files. The operator's 2026-11-24 PowerShell transcript now confirms each was byte-for-byte copied into a local checkpoint staging directory, but **none was committed to GitHub**:
 
 ```text
 argon_geometry_audit.py
@@ -108,4 +108,15 @@ tests/test_backend_certification.py
 twistor/backend_certification.py
 ```
 
-**Resume:** (1) verify this manifest; (2) back up the eight raw artifacts with their listed hashes and intentionally assess the five untracked files; (3) keep Bridge Lemma 6 frozen; (4) adopt the limited 7A contract or open a separate wider-domain audit; (5) proceed to 7B–7D. Until that happens, `all_certified=False` and **full 7A remains NOT_CERTIFIED**.
+**Resume:** (1) verify the checkpoint ZIP and preserve an independent off-machine copy; (2) inspect the five untracked source files and eight raw artifacts before deciding which are suitable for Git; (3) keep Bridge Lemma 6 frozen; (4) adopt the limited 7A contract or open a separate wider-domain audit; (5) proceed to 7B–7D. Until that happens, `all_certified=False` and **full 7A remains NOT_CERTIFIED**.
+
+
+## Local checkpoint creation confirmed (2026-11-24)
+
+An operator-provided PowerShell transcript records successful source-to-staging SHA-256 equality checks for **13 files**: the eight evidence artifacts listed above and the five previously untracked repository files. It also records successful creation of the `SHA256_MANIFEST.csv` file and of the local ZIP archive:
+
+- Archive: `%USERPROFILE%\\Downloads\\argon_7a_checkpoint_20261124.zip`
+- Archive SHA-256 (operator-reported): `fcbb0f2224b34d21b7b2f4ebcbe13f5d20bf2161fac610a7686ada186488034d`
+- Archive contents intended: `repo/` (five files), `evidence/` (eight files), and `SHA256_MANIFEST.csv`
+
+**Evidence limitations:** only the console transcript was provided in chat, **not the ZIP bytes**. This records a successful local packaging action, not independent verification of ZIP-entry integrity or an off-device/cloud backup. The 13 file bytes remain absent from this GitHub branch. Do not report the source code or raw logs as pushed until they are reviewed and uploaded intentionally.
