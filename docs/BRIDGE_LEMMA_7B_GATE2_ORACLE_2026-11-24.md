@@ -130,3 +130,25 @@ The driver printed `ALL_7B_DISCOVERY_MODES_COMPLETED` and launcher `CDB exit cod
 **Gate 3B status:** complete for **callback discovery at this one serial-for-each call site**; not a full dynamic instruction proof. The script armed the breakpoint at module load and used an indirect executable-address watch (`ba e 1`), rather than an explicit DebugBreak after warm-up. Other execution pathways bypassing this site have not been excluded. No actual scalar/AVX2/FMA arithmetic opcode hit counters were collected.
 
 **Next:** resolve observed callback RVA jump thunks, decode each resolved PE `.pdata`-bounded function, identify FP64 arithmetic instructions, then place targeted **runtime breakpoints at actual arithmetic instructions**, checking alternative branches/calls before certifying any error constant. `candidate_7b_discriminant_bound_float64` stays `status="unresolved"`; `all_certified=False`.
+
+
+## Gate 3C pinned-DLL static arithmetic inventory (2026-11-24)
+
+The operator ran the hash-pinned, read-only `bridge7b_gate3c_static.py` inspection and supplied its full UTF-16LE PowerShell transcript `lemma7b_gate3c_static_01.txt`. In the reviewing runtime, the actual uploaded file has size **9,770 bytes** and SHA-256 `024af2f724471812e684b547ee2b629232381ec82f9152468d672af3c240d4a2`. The helper script SHA-256 is `c3a84cbdfd04c97a1da460eebdc7d8c823d4b67bc8f3ad10ab2887344f74a31f`. The report confirms the loaded DLL hash `b8ec43a4ff24435c93a8a7710f9cf3fe1f246d923abbd7549064c8ba26afc642` and identifies Capstone under the isolated tools installation.
+
+For eight dynamically discovered callback entries the script followed entry-point direct jump thunks to a PE `.pdata` function and linearly decoded **100% of the reported function byte ranges**. Key static findings:
+
+| Candidate source operation | Callback entry -> resolved body RVA | Floating-point instruction candidates *in decoded body* |
+| --- | --- | --- |
+| complex128 `v*v` | `0xD3238A0 -> 0xD3C8140` | 4 `vmulpd`, 2 `vhsubpd`; **no FMA** in this decoded body |
+| real `x*x` and `y*y` | `0xD323840 -> 0xD3C7120` | 4 `vmulpd`; **no FMA** in decoded body |
+| real `x*x + y*y` | `0xCA3B670 -> 0xCA42980` | **2 `vfmadd213pd`** at `0xCA42A71` and `0xCA42A77` |
+| final complex128 addition | `0xCA3B5D0 -> 0xCA40AF0` | 4 `vmulpd`, 2 `vhsubpd`, 2 `vaddpd`; **no FMA** in decoded body |
+| complex construction / cast candidates | `0xD2F56F0` / `0xAEE9D90` | No arithmetic mnemonics in selected bodies, but **2 indirect calls each** |
+| inter-mode setup / batched-extra callbacks | `0xD262BA0 -> 0xD2F2C40` / `0xD2203F0 -> 0xD223160` | No selected arithmetic mnemonics |
+
+The result **does not prove** execution of either FMA. In particular, the real-add FMA candidates coincide with the previously unhit vector FMA site in the *7A n=3* audit; 7B's `n=8` case may take a distinct branch. No arithmetic instruction breakpoints were hit in this 3C run.
+
+**Important limitation:** the script's `unresolved_items=0` means successful entry-thunk resolution and contiguous linear decoding of each *selected* `.pdata` range; **it is not transitive control-flow coverage**. The complex-multiplication callback shows packed arithmetic but no scalar FP instructions in its listed range, despite executed `n=1` tests. Scalar remainder/helper paths (including direct calls) and all conditional branches need to be traced explicitly. A successful contiguous decode also does not demonstrate the whole decoded byte range is traversed.
+
+**Next Gate 3D:** set software instruction breakpoints at the specific packed `vmulpd` / `vhsubpd` / `vaddpd` and `vfmadd213pd` RVAs, retain the verified `serial_for_each` dispatch breakpoint, and compare actual n=1 versus n=8 hits and MXCSR. Follow separate scalar helpers if packed instructions are not reached. Do not use the observed `3cd0000000000000` probe or this static scan alone to certify a no-FMA complex128 path. Keep 7B `unresolved` and `all_certified=False`.
