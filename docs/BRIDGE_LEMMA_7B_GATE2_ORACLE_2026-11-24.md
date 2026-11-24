@@ -152,3 +152,42 @@ The result **does not prove** execution of either FMA. In particular, the real-a
 **Important limitation:** the script's `unresolved_items=0` means successful entry-thunk resolution and contiguous linear decoding of each *selected* `.pdata` range; **it is not transitive control-flow coverage**. The complex-multiplication callback shows packed arithmetic but no scalar FP instructions in its listed range, despite executed `n=1` tests. Scalar remainder/helper paths (including direct calls) and all conditional branches need to be traced explicitly. A successful contiguous decode also does not demonstrate the whole decoded byte range is traversed.
 
 **Next Gate 3D:** set software instruction breakpoints at the specific packed `vmulpd` / `vhsubpd` / `vaddpd` and `vfmadd213pd` RVAs, retain the verified `serial_for_each` dispatch breakpoint, and compare actual n=1 versus n=8 hits and MXCSR. Follow separate scalar helpers if packed instructions are not reached. Do not use the observed `3cd0000000000000` probe or this static scan alone to certify a no-FMA complex128 path. Keep 7B `unresolved` and `all_certified=False`.
+
+
+## Gate 3D executed FP instruction hits — runtime evidence (2026-11-24)
+
+The operator supplied the complete PowerShell/CDB transcript of a pinned `torch_cpu.dll` run, using the same source driver as Gate 3B. The Windows launcher checked the DLL SHA-256 `b8ec43a4ff24435c93a8a7710f9cf3fe1f246d923abbd7549064c8ba26afc642`; the driver SHA-256 was reported as `37038c39990a6f02f7b7b7e7d3c245c09eca1f0b10453e3bf72ba068b62477ea`. The log-file SHA-256 was operator-reported as `35b5d9f843192cb4dd49e33d54d3dd20ea4bbcbbd8ca82dc9ca1227cd1be972b`. The raw `lemma7b_gate3d_arithmetic_01.log` is local only; the actual uploaded chat material is the console transcript, **not raw LOG bytes**.
+
+**Initial CDB error messages did not invalidate the test**: all 21 breakpoints were first registered as deferred because `torch_cpu.dll` had not loaded. On module load the expressions resolved and actual breakpoint event markers were emitted at the expected instruction addresses.
+
+Counting only genuine runtime event-marker lines, not breakpoint definitions or warnings:
+
+| Observed phase / instruction group | Genuine hits |
+| --- | ---: |
+| `TensorIteratorBase::serial_for_each` callback dispatch | **23** |
+| Complex128 vector multiplication: six `vmulpd` / `vhsubpd` sites, twice each | **12** |
+| Real multiplication: four monitored `vmulpd` sites | **0** |
+| Real addition: `vfmadd213pd` at `0xCA42A71` and `0xCA42A77` | **2** |
+| Complex128 final vector addition: eight `vmulpd` / `vhsubpd` / `vaddpd` sites, twice each | **16** |
+| **All 20 monitored arithmetic sites** | **30 hits** at **16 distinct sites** |
+
+All genuine 23 dispatch and 30 arithmetic hits recorded `MXCSR=0x1fa0`. All **30 arithmetic hits occur in the batched `(8,3)` mode**; none of the 20 monitored *vector* sites fired in either scalar `(3,)` mode, although those modes executed and returned the expected result. The callback dispatch has `r9=1` on scalar modes, `r9=3` on the intervening setup callback, and `r9=8` on the batched mode.
+
+The batched mode recorded these instruction orders:
+1. Complex multiplication: the six selected vector FP instructions, **two passes** (`n=8`; this does not itself prove exactly which element lanes map to which inputs).
+2. Real multiply callbacks, **zero hits** at the four chosen packed `vmulpd` sites; the executed real-multiplication instructions remain to be located.
+3. Real-add callback: two **executed** `vfmadd213pd` instructions.
+4. Final complex-add callback: eight selected packed FP instructions, **two passes**.
+
+**Interpretation:**
+
+- The executed `vfmadd213pd` instructions conclusively demonstrate vector FMA instructions on the selected `n=8` real-add code path. They do **not** prove that mathematical `x*x + y*y` is contracted across the separate PyTorch tensor operations: in generic ATen addition, an FMA can implement `a + alpha*b` where `alpha=1.0`. The scaling factor and exact operands must be checked at the live instruction.
+- The observed complex multiplication `vmulpd` / `vhsubpd` vector sequence is consistent with separately rounded products before real/imaginary subtraction, explaining the previously measured `3cd0000000000000` FMA discriminator. The selected body contains no statically decoded FMA, but a complete no-FMA claim requires ruling out other branches/helpers.
+- Zero `RMUL` hits do **not** mean multiplication was skipped; they show only that these particular packed sites were not exercised. The scalar path and the exercised real-mul arithmetic are still uncharacterized.
+- The vector complex-add sequence includes multiplications and subtractions **before** vector adds. An exact-alpha=1 proof requires direct operand inspection; do not assume these are zero-error just from their names.
+
+The driver reported matching scalar first-element and batched row-0 output bits (`re=3cd0000000000000`, `im=4012000000000001`), `ALL_7B_DISCOVERY_MODES_COMPLETED` and `CDB exit code: 0`. The local Git worktree still showed the same five pre-existing untracked files and no tracked changes.
+
+**Gate 3D status:** **COMPLETE as a dynamic hit census of the selected 20 vector instruction sites**, **not** full instruction-level certification of `delta()`. Bridge Lemma 7B remains `status="unresolved"`; `all_certified=False`.
+
+**Next Gate 3E:** resolve scalar-remainder/direct-call branches for complex multiplication, real multiplication, and final complex addition; inspect operands at executed real-add FMA sites (including exact alpha), and establish branch completeness before deriving or certifying `12uM`.
