@@ -220,3 +220,27 @@ The operator supplied the actual debugger log `lemma7b_gate3f_helpers_02.log` an
 Neither the actual debugger log nor the console transcript contains `L7B_GATE3F_SETUP`, `L7B3F_DISPATCH`, `L7B3F_FP_`, or `L7B3F_HELPER_` markers. Thus **zero successful Gate 3F breakpoint hits** were collected. The recorded CDB exit code 0 does not imply breakpoint-trace success.
 
 **Status:** `Gate 3F NOT EXECUTED` (invalid instrumentation attempt; DLL load and two static disassembly instructions only). A correct retry must invoke the already-preserved `lemma7b_gate3f_helpers_01.cdb` at the `1:005` stop immediately after `ModLoad ... torch_cpu.dll`, confirm its setup marker and 14 enabled resolved breakpoints, and only then issue `g`. Preserve the failed run log and do not change `all_certified=False`.
+
+
+## Gate 3F completed after noisy-breakpoint disable — dynamic direct-callee entries (2026-11-24)
+
+The operator supplied a debugger continuation transcript (`Вставленный текст(20261124-151438).txt`), SHA-256 `fb3652f4f4ee3a201b77ade1468601e2f06b788aaf03e0ca41181d41893a891a`. This is **not the complete raw CDB log**: it covers the continuation after the earlier Ctrl+C interruptions and a limited prelude; retain the original `lemma7b_gate3f_helpers_03.log` locally for independent reproduction. The continuation shows CDB `bl` with 14 resolved breakpoints in Python child process `1:002` and `13 d` marking the extremely noisy shared helper (`torch_cpu+0xF85AE10`) **disabled**, while the other 13 remained enabled.
+
+The same process later emitted `DRIVER_READY`, all three mode begin/end markers with exact expected output bits, `ALL_7B_DISCOVERY_MODES_COMPLETED`, and `ntdll!NtTerminateProcess` followed by the debugger prompt. This is genuine successful completion of the **tested driver** and a usable runtime helper-entry census; the debugger had not yet been explicitly quit in the provided transcript.
+
+Within the **finished driver section**, counts from the uploaded continuation:
+
+| Event | scalar contiguous (n=1) | scalar strided (n=1) | batched contiguous (n=8) | intervening setup |
+| --- | ---: | ---: | ---: | ---: |
+| `L7B3F_DISPATCH` | 7 | 7 | 8 | 1 |
+| Complex-mul `CMUL_HELPER_2` and `CMUL_HELPER_1` | 1 + 1 | 1 + 1 | 0 + 0 | 0 |
+| Real-mul `RMUL_HELPER_2` and `RMUL_HELPER_1` | 2 + 2 | 2 + 2 | 2 + 2 | 0 |
+| Real-add `RADD_HELPER_2` and `RADD_HELPER_1` | 1 + 1 | 1 + 1 | 0 + 0 | 0 |
+| Final complex-add `CADD_HELPER_2` and `CADD_HELPER_1` | 1 + 1 | 1 + 1 | 0 + 0 | 0 |
+| New `L7B3F_FP_*` sites (`0xD342B60`, `0xD342B66`, `0xCA3CA3E`, `0xCA3CA49`) | 0 | 0 | 0 | 0 |
+
+**Key evidence:** The scalar modes enter two immediate direct helper functions per operation in a reproducible order; the n=8 batch enters the real-mul helper pair twice per helper, but not the other three pairs. This both supports distinct scalar/vector paths and shows that the real-mul operation's selected `n=8` helper path still lacks dynamically identified FP opcodes. The four extra `vmulpd`/`vfmadd231pd` sites found in Gate 3E remain **unhit** in this workload (not globally unreachable). All recorded helper/dispatch stops had `MXCSR=0x1FA0`; the observed outputs were `re=3cd0000000000000` and `im=4012000000000001` in both scalars and batch row0.
+
+The preceding run produced extremely many `L7B3F_HELPER_SHARED_HELPER` events at address `0x4134AE10`; a generic helper address instrumented by error was too hot. The operator interrupted with Ctrl+C; several first-chance `0x40010005` events followed; disabling breakpoint 13 on the **Python child process** stopped the instrumentation flood, and all modes subsequently completed. This proves neither an infinite loop in PyTorch nor a numerical failure. The shared helper was disabled before the completed driver section. The uploaded tail alone does not independently establish a precise total count of prior noisy hits.
+
+**Gate 3F status:** **COMPLETED FOR THE WORKLOAD'S SELECTED DIRECT-CALLEE ENTRY CENSUS**, with noisy breakpoint disabled. **Not** complete instruction-level coverage: scalar arithmetic opcodes, n=8 real-multiply opcodes, indirect/tail branches, and `alpha` operands at live real-add FMAs remain to be established. `candidate_7b_discriminant_bound_float64` and `all_certified` remain **unresolved/False**.
