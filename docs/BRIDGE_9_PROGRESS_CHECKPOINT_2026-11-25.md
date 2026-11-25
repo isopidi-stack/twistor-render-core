@@ -15,8 +15,11 @@ This is a documentation-only progress record. It reports separately reviewed loc
 | Bridge 9H | Restricted standalone exact-algebraic mathematical reference owner accepted and closed |
 | Bridge 9I-A static reconciliation | Completed in authenticated reconstructed source scope |
 | Bridge 9I-A live preservation evidence | Owner accepted and closed within restricted enumerated evidence scope, 2026-11-25 |
-| Bridge 9I-A overall | OPEN: native affine instruction evidence and final contract/fixture freeze outstanding |
-| Bridge 9I-B onward / 9J | Runtime implementation, integration and scoped promotion not authorized |
+| Bridge 9I-A overall | OWNER ACCEPTED AND CLOSED: restricted R2 design review, qualified affine instruction deferral |
+| Bridge 9I-B | OWNER ACCEPTED AND CLOSED: R3 authenticated exact-algebraic initialization |
+| Bridge 9I-C | R1 pinned single-step review passed; lead reconciliation complete; auditor accepts closure; **formal owner acceptance pending** |
+| Bridge 9I-D | Six verification requirements accepted by technical lead; **owner authorization pending; no recursive execution yet** |
+| Bridge 9I-E–G / 9J | Adaptive, adversarial/reproducibility, integration and promotion not authorized |
 
 ## Evidence checkpoint
 
@@ -42,13 +45,38 @@ Exact finite binary64 positions, exact nonzero signed represented b, explicit sh
 
 Static reconciliation confirms: 9H checks all unrounded radii Rx/Re/Rc nonnegative; 7BCD propagation returns exact Fraction tuple (ec, ep, ee, D, ex_next), mapping Rx=ex_next, Re=ee, Rc=ec; 7B exact domain guard applies to the actual represented endpoint before discriminant evaluation; signed b retained. 8F rejects nonrepresentable initial candidate/remainder immediately, authenticates entry before zero-distance arrival, uses complex(re, im), full MXCSR boundaries around materialization and preconstructs Attempt before the sole publication. Flat versus package-qualified imports require explicit exact type binding; no duck typing or silent alias substitutions. Keep accepted source bytes and 9H package unchanged. Full mathematical historical verification remains the conservative initial design; persistent-history optimization deferred pending proof.
 
+## Latest checkpoint: after 9I-C reconciliation and 9I-D auditor disposition
+
+- 9I-A R2: owner explicitly closed restricted design review. Native affine instruction identification deferred under Q1–Q4 and inherited T1–T4, not verified. Exact a posteriori actual affine residual, single-evaluation word binding (private bit-identical snapshot permitted), discrete post-affine 7B boundary guards and documentary scope restrictions remain mandatory. Native 7B discriminant evidence remains binding. No universal affine model accuracy, shadow dominance, bitwise equivalence or guaranteed admission claimed.
+- 9I-B R3: owner explicitly accepted and closed. Pinned Windows PyTorch 2.15.0+cpu, AVX2; 6/6 tests, 32 initialization attempts, 13 successful initial heads, 19 controlled rejections, 248 reconciled assertions, 48 manifest entries, zero continuation invocations. Exact root/direction words and minimal radii independently reconciled, including negative-zero subnormal rounding. Observed maximum 4,314 refinements and 140,696 operations under unchanged 20,000 and 5,000,000 caps. Resource sufficiency is fixture-specific.
+- 9I-C R1: owner authorized general n-to-n+1 architecture and private budget hook but actual execution strictly 0-to-1. Pinned Windows run 6/6 tests, 54.297 seconds, exit 0. Lead reconciled 7 verified native transitions, 259 mathematical predicates (37 per transition), 25 control records, 3 outward-radius masking controls, 52 manifest entries, 26 inherited and 32 total candidate source pins. 4 positive and 3 negative selector signs; 15 evaluator entries, 13 discriminant-pair/intrinsic checks, 11 raw successful returns, 8 observed publications, 7 verified, 1 deliberately unreconciled postpublication fault, 10 controlled rejections, 8 expected integrity aborts, zero recursive evaluator entries. Domain rejection scales 2^1022+1 and 2^-2147; in-domain zero discriminant at M=2. Insufficient advance allowance residual 101/2^114 with A=+0 rejected; -0 allowance rejected before invocation. Actual underestimate is terminal and poisons. Radius masking and postpublication fault are injected controls, not naturally occurring failures.
+- 9I-C positive records peaked at 37,125 operations, 1,276 comparisons, 168 refinements. No resource increases. Both 9I-B and 9I-C pre/post nested preservation payloads matched the original owner-accepted six-member 9I-A evidence (12 comparisons per campaign); fresh scan logs inspected. This is captured, discrete preservation under trusted-process assumptions, not continuous attestation.
+- Independent auditor accepts 9I-C closure and recommends 9I-D with six mandatory requirements; auditor reviewed lead report, not raw ZIP contents, and did not independently re-hash them. Lead's separate archive reconciliation is the basis for the counts and digests. **Owner has not yet accepted 9I-C closure or authorized 9I-D.** The current request is to save progress only.
+
+| Latest artifact (retained separately) | SHA-256 |
+| --- | --- |
+| 9I-A R2 final review ZIP | `3fab2ca87002258a630623c6e961658fbd32da6c6e26376471e0d07a9a839711` |
+| 9I-B R3 implementation ZIP | `26166c55542df082c1ac43261b4e65b7e78865e3feb14f2c3ce54a8f0d6567f1` |
+| 9I-B Windows evidence ZIP | `10c646046b4322cc6a259967ea910de3e8e014e3d25313c597b1c39375d5cfd3` |
+| 9I-C R1 implementation ZIP | `b455e76fa452977095eaa32045227208413477e0a8cc3adfb46c2adc056b1adf` |
+| 9I-C Windows evidence ZIP | `2390cac6cc08414486a02bd65ceb5589b3541c857a5840f53e01828be35dd1fe` |
+| 9I-C pre-preservation ZIP | `b23eeeb86018b00fdff26750ac7bcc7f86f852378c588b42815d5396cce10fb6` |
+| 9I-C post-preservation ZIP | `0ef825d3ae0efffcdf92417d15819171ec38c90c81cdb8ff144594f69ee74f4a` |
+
 ## Resume exactly here
 
-1. Review existing accepted native evidence for the actual affine advance `pos_next64 = pos64 + h_hat * k64` in the pinned Windows runtime. Establish observed instruction path and captured endpoint/residual evidence; do not infer machine instructions from the Python expression. If existing evidence is insufficient, propose a narrowly scoped diagnostic and obtain separate explicit authorization before executing it. Correctly rounded FMA cannot increase the residual relative to another finite represented candidate; signed words and inherited runtime assumptions still require verification.
-2. Freeze final additive interface/import binding, ownership/publication/failure contract, resource policy, fixture policies, exact acceptance criteria and proof obligations. Include genuine quartic branch-cut crossing, both b/sheet signs, irrational singular prefix, lower/upper domain and cancellation, signed zero, negative bounds, zero-distance authority and resource/failure controls. Proposed fixtures are not native results.
-3. Request explicit owner acceptance of the remaining 9I-A scope, then separate authorization for 9I-B initialization and subsequent single-step work. No runtime implementation, native probe, production patch, PyTorch integration, executable source promotion, push/merge of local implementation, renderer migration or certification expansion is currently authorized.
+1. Obtain explicit owner closure of restricted 9I-C R1 and authorization of review-only recursive execution and additive 9I-D tests. Do not rerun 9I-C solely to resume; no further CDB is required for its accepted evidence scope. Do not infer authorization from auditor disposition or this documentation update.
+2. Preserve R1 candidate implementation; prefer test-only additions. Any required correction to accepted candidate executable source needs separate review and authorization. Proposed test_13–test_18:
+   - test_13: two 16-step negative-sheet quartic trajectories (b=+1 and -1, h=1/8, target 2), positive-sheet control. Exact bracket P(5/4)=-31/256, P(11/8)=2801/4096 for P(T)=T^4-T^2-1. Actual discriminant real negative on steps 10 and 11, imaginary sign reversal (+ to - for positive b, opposite for negative b), observed selector -1 to +1. Fixed explicit test-supplied allowance each step, no adaptive allocator.
+   - test_14: interior/exterior quadratic chains; exact nonrepresentable sum 1/8+2^-60=(2^57+1)/2^60. No float progress check.
+   - test_15: generation-2 history corruption, intermediate unrounded radius outward masking and compensated h-word changes preserving total s. Bind reconstructed predecessor to captured inputs and outputs, fixed witness/b/sheet/direction/policies, every unrounded predicate and current head; reject before evaluator entry.
+   - test_16: per-generation operations/comparisons/refinements on 16-step quartic; tight test-only resource control mid-chain. Actual R1 entry replay has N(N-1)/2 historical handoffs plus N new handoffs (136 total at N=16), not double replay 256. This is control-flow count, not cost bound. Resource exhaustion during untrusted history replay poisons; eligible preflight after authentication can reject without poisoning if unchanged authority verified; post-invocation exhaustion terminal. Measure future shared-budget feasibility, do not increase caps.
+   - test_17: healthy stale predecessor S0/S1 at S2, foreign identical-value head, healthy recovery; exterior quadratic irrational singular-prefix crossing at sqrt(3), 13 steps of 1/8 then reject 14th before invocation, shorter 1/16 recovery to 27/16 if genuine admission permits.
+   - test_18: injected postpublication fault on S1 to S2, separately record observed/unreconciled publication and verified prefix, block both old and new heads after poison.
+3. Pin exact deterministic test identities, schedules, counters and evidence schema before execution. Independently verify all 37 predicates for every successful intermediate transition plus continuity and exact parameter sums, not just terminal states. No claimed fixture success before evidence.
+4. No adaptive controller, algorithmic optimization, production integration, Git modification of frozen worktrees, promotion, push/merge of executable research, renderer migration or certification expansion. Both locks remain false.
 
-The historical six-worktree/697-file local baseline must remain frozen. Any future local documentation update must be on a separate explicitly reviewed checkpoint, not a change to the accepted baseline. The public documentation commits are not local preservation evidence and do not establish synchronization.
+Preserve six local worktrees, 697 enumerated files, 26 accepted source pins and local checkpoint 76e6267a63d6e3ccde873959edecf3f3ce27aa83. Public documentation branch is separate from that local checkpoint. Do not pull or merge this documentation into the frozen baseline. The remote main and audit branches are intentionally left unchanged in this checkpoint.
 
 ## Documentary ledger (not executable assignments)
 
@@ -56,7 +84,10 @@ The historical six-worktree/697-file local baseline must remain frozen. Any futu
 GATE9_MATHEMATICAL_SCOPE_OWNER_ACCEPTED = True
 GATE9_REFERENCE_IMPLEMENTATION_AUTHORIZED = True
 GATE9_REFERENCE_IMPLEMENTED = True
-# Restricted 9H owner acceptance and 9I-A live evidence sub-scope closure recorded above.
+# Restricted 9H, 9I-A R2 and 9I-B R3 owner closures recorded above.
+# 9I-C R1 evidence reconciled and auditor endorsed; owner closure pending.
+# These are historical canonical flags, not a denial of scoped review execution.
+# No changes to executable flags or certification scope.
 GATE9_RUNTIME_CONSUMER_AUTHORIZED = False
 GATE9_PINNED_RUNTIME_VERIFIED = False
 GATE9_INTEGRATION_AUTHORIZED = False
