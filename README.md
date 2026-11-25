@@ -6,34 +6,31 @@ For formal theorem statements, proof status, and scope boundaries, see **[`docs/
 
 ## Research progress wall — 25 November 2026
 
-> **Current research checkpoint: Bridge 9I-A.** Restricted live preservation evidence is owner-accepted and closed. The overall gate remains open for native affine instruction evidence and the final implementation contract and fixture freeze. This is a documentation-only research record, not a promotion of local numerical implementations to GitHub.
+> **Current checkpoint: Bridge 9I-C pinned evidence reconciled and auditor endorsed.** Restricted 9I-A R2 design review and 9I-B R3 initialization are owner-accepted and closed. Next action: explicit owner acceptance of 9I-C and authorization of 9I-D recursive verification. No recursive execution yet. This is a documentation-only record of separately reviewed research, not executable promotion to GitHub.
 
 | Research milestone | Qualified status |
 | --- | --- |
-| Bridge 7B | Conditional T1–T4 numerical certification, restricted local scope |
-| Bridge 7C–7D | Conditional a posteriori certificate and exact selection |
-| Bridge 8 | Restricted rational-witness initialization and recursive chaining |
-| Bridge 8F | Bounded adaptive rational-witness continuation — owner accepted and closed |
-| Bridge 9A–9F | Exact algebraic geometry, degree-four bound and conditional theorem transfer — owner accepted |
-| Bridge 9H | Standalone exact-algebraic reference — owner accepted and closed; simulation only |
-| Bridge 9I-A: static source reconciliation | Complete within authenticated reconstructed-source scope; 26/26 source pins |
-| Bridge 9I-A: live preservation evidence | Owner accepted and closed; 697/697 captured file hash records, six worktrees, 25/25 independent evidence checks |
-| Bridge 9I-A: native affine instructions | **Next — unresolved** |
-| Bridge 9I-A: final contract and fixtures | Pending review and freeze |
-| Bridge 9I-B–G / 9J | Runtime implementation, verification, integration and promotion not authorized |
+| Bridge 7B–7D | Conditional T1–T4 / a posteriori numerical bounds and exact selection |
+| Bridge 8 / 8F | Rational-witness recursion and bounded adaptive continuation; 8F owner accepted |
+| Bridge 9A–9F | Exact algebraic mathematics and degree-four bound — owner accepted |
+| Bridge 9H | Standalone exact-algebraic reference — owner accepted; simulation only |
+| Bridge 9I-A | R2 design review — owner accepted and closed; qualified native affine trace deferral (not instruction verification) |
+| Bridge 9I-B | R3 authenticated initialization — owner accepted and closed |
+| Bridge 9I-C | R1 pinned Windows single-step continuation — evidence reconciled, auditor accepts closure, **owner closure pending** |
+| Bridge 9I-D | **Next: owner authorization pending**; six mandatory recursive verification requirements |
+| Bridge 9I-E–G / 9J | Adaptive continuation, further verification and integration/promotion not authorized |
 | Renderer migration / aggregate certification | Locked |
 
-**Verified research evidence:** 14/14 standalone reference tests on Linux and Windows, 23/23 deterministic counters, 7,193 reported independent oracle assertions, 52 simulated schedules and zero native invocations in the 9H reference suite. Live preservation compares captured hash records; it is not continuous attestation or verification of ignored files.
+**Evidence:** 9H 14/14 standalone tests and 7,193 reported oracle assertions; 9I-B 6/6 pinned tests, 13 initializations, 19 rejections, 248 reconciled assertions; 9I-C 6/6 pinned tests, 7 verified transitions, 259 predicates, 25 control records, 3 radius-masking controls, both selection signs and zero recursive evaluator entries. One intentionally unreconciled publication is not counted as verified. All pre/post captured preservation records reconcile to the accepted 697-file, six-worktree baseline; 26 inherited source pins match. No continuous attestation, universal resource bound or aggregate certification claimed.
 
-**[Full research checkpoint, evidence fingerprints, limitations and exact resumption instructions](docs/BRIDGE_9_PROGRESS_CHECKPOINT_2026-11-25.md)**
+**[Full checkpoint, artifact fingerprints, limitations and exact resumption instructions](docs/BRIDGE_9_PROGRESS_CHECKPOINT_2026-11-25.md)**
 
 ### Publication and preservation boundary
 
-- Pre-documentation GitHub main baseline: `d0db6f43827218ef8b0ea5447edc1a385fffd5e6` (Bridge 6).
-- Remote main received a single documentation-only checkpoint commit `f0f11adb8b08306b60fc103e3cf09de4b251d5be`. This README wall is maintained separately on the documentation branch; no further main update is intended.
-- Accepted local Bridge 8F checkpoint: `76e6267a63d6e3ccde873959edecf3f3ce27aa83`. The later local executable implementations are not implied to be on GitHub main.
-- Preserve the six local worktrees, 697 enumerated files, accepted executable bytes, references and original 9H archive. Do not pull or merge this documentation into the frozen local baseline without explicit review and re-baselining.
-- Both certification locks remain false in the accepted local scope: `_7B_INTEGRATION_ACCEPTED = False` and `all_certified = False`. No new runtime implementation or native probing is authorized.
+- Pre-documentation GitHub main baseline: `d0db6f43827218ef8b0ea5447edc1a385fffd5e6` (Bridge 6); remote main checkpoint `f0f11adb8b08306b60fc103e3cf09de4b251d5be` remains unchanged by this documentation update.
+- Accepted local Bridge 8F checkpoint: `76e6267a63d6e3ccde873959edecf3f3ce27aa83`. Later executable review artifacts are retained separately, not promoted to main.
+- Preserve the six local worktrees, 697 enumerated files, 26 source pins and all accepted archives. Do not merge or pull this documentation into the frozen local baseline.
+- Both locks remain false: `_7B_INTEGRATION_ACCEPTED = False`, `all_certified = False`. No integration, promotion, adaptive or recursive execution is newly authorized by this checkpoint.
 
 ## Mathematical Status at a Glance
 
