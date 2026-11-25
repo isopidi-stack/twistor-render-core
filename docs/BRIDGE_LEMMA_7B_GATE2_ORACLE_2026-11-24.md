@@ -261,3 +261,8 @@ The operator pasted the complete visible CDB console output from `lemma7b_gate3g
 **Observed batch evidence notwithstanding phase mislabel:** vector complex multiply enters its vector loop (first-hit branches at `0xD3C81AC`, `0xD3C81B5`, etc.), and original real-add `vfmadd213pd` at `0xCA42A71` / `0xCA42A77` both fire within the actual batch mode at `MXCSR=0x1FA0`. This is consistent with Gate 3D, not an additional universal FMA contraction proof.
 
 **Corrective action:** create a distinct new scalar-stage CDB command file that changes **only** the boundary pass count from `16` to explicit decimal `0n16`; preserve the existing scalar/batch scripts and all raw logs. On a fresh pinned CDB run, load the corrected scalar file only after `ModLoad ... torch_cpu.dll`, verify that `L7B3G_BATCH_BOUNDARY` appears after `BEGIN_7B_MODE batched_8x3_contig` and before *any* batch arithmetic hits, load the existing batch command file, and then analyze. No 7B certification; `all_certified=False`.
+
+
+## Current checkpoint — 2026-11-25
+
+The initial Gate 3G defect above is historical. See [Gate 3 consolidated checkpoint](BRIDGE_LEMMA_7B_GATE3_CHECKPOINT_2026-11-25.md) for the accepted two-stream bounded survey, native arithmetic evidence, conditional inequality, exact domain/enclosure, admission and binding prototypes, downstream regression and shadow correction through Gate 3I-P. No production changes or certification promotion: 7B–7D unresolved, `all_certified=False`.
