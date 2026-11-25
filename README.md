@@ -4,6 +4,37 @@ Argon (`twistor-render-core`) is a computational geometry and rendering engine e
 
 For formal theorem statements, proof status, and scope boundaries, see **[`docs/THEOREMS_AND_PROOFS.md`](docs/THEOREMS_AND_PROOFS.md)**. For rendering and numerical guarantees, scope, and evidence, see **[`docs/RENDERING_GUARANTEES.md`](docs/RENDERING_GUARANTEES.md)**.
 
+## Research progress wall — 25 November 2026
+
+> **Current research checkpoint: Bridge 9I-A.** Restricted live preservation evidence is owner-accepted and closed. The overall gate remains open for native affine instruction evidence and the final implementation contract and fixture freeze. This is a documentation-only research record, not a promotion of local numerical implementations to GitHub.
+
+| Research milestone | Qualified status |
+| --- | --- |
+| Bridge 7B | Conditional T1–T4 numerical certification, restricted local scope |
+| Bridge 7C–7D | Conditional a posteriori certificate and exact selection |
+| Bridge 8 | Restricted rational-witness initialization and recursive chaining |
+| Bridge 8F | Bounded adaptive rational-witness continuation — owner accepted and closed |
+| Bridge 9A–9F | Exact algebraic geometry, degree-four bound and conditional theorem transfer — owner accepted |
+| Bridge 9H | Standalone exact-algebraic reference — owner accepted and closed; simulation only |
+| Bridge 9I-A: static source reconciliation | Complete within authenticated reconstructed-source scope; 26/26 source pins |
+| Bridge 9I-A: live preservation evidence | Owner accepted and closed; 697/697 captured file hash records, six worktrees, 25/25 independent evidence checks |
+| Bridge 9I-A: native affine instructions | **Next — unresolved** |
+| Bridge 9I-A: final contract and fixtures | Pending review and freeze |
+| Bridge 9I-B–G / 9J | Runtime implementation, verification, integration and promotion not authorized |
+| Renderer migration / aggregate certification | Locked |
+
+**Verified research evidence:** 14/14 standalone reference tests on Linux and Windows, 23/23 deterministic counters, 7,193 reported independent oracle assertions, 52 simulated schedules and zero native invocations in the 9H reference suite. Live preservation compares captured hash records; it is not continuous attestation or verification of ignored files.
+
+**[Full research checkpoint, evidence fingerprints, limitations and exact resumption instructions](docs/BRIDGE_9_PROGRESS_CHECKPOINT_2026-11-25.md)**
+
+### Publication and preservation boundary
+
+- Pre-documentation GitHub main baseline: `d0db6f43827218ef8b0ea5447edc1a385fffd5e6` (Bridge 6).
+- Remote main received a single documentation-only checkpoint commit `f0f11adb8b08306b60fc103e3cf09de4b251d5be`. This README wall is maintained separately on the documentation branch; no further main update is intended.
+- Accepted local Bridge 8F checkpoint: `76e6267a63d6e3ccde873959edecf3f3ce27aa83`. The later local executable implementations are not implied to be on GitHub main.
+- Preserve the six local worktrees, 697 enumerated files, accepted executable bytes, references and original 9H archive. Do not pull or merge this documentation into the frozen local baseline without explicit review and re-baselining.
+- Both certification locks remain false in the accepted local scope: `_7B_INTEGRATION_ACCEPTED = False` and `all_certified = False`. No new runtime implementation or native probing is authorized.
+
 ## Mathematical Status at a Glance
 
 The repository maintains a strict separation between **established algebraic derivations**, **explicit proof obligations**, and **numerical or architectural verification**:
