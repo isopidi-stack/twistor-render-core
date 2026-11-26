@@ -4,33 +4,37 @@ Argon (`twistor-render-core`) is a computational geometry and rendering engine e
 
 For formal theorem statements, proof status, and scope boundaries, see **[`docs/THEOREMS_AND_PROOFS.md`](docs/THEOREMS_AND_PROOFS.md)**. For rendering and numerical guarantees, scope, and evidence, see **[`docs/RENDERING_GUARANTEES.md`](docs/RENDERING_GUARANTEES.md)**.
 
-## Research progress wall — 25 November 2026
+## Research progress wall — 26 November 2026
 
-> **Current checkpoint: Bridge 9I-C pinned evidence reconciled and auditor endorsed.** Restricted 9I-A R2 design review and 9I-B R3 initialization are owner-accepted and closed. Next action: explicit owner acceptance of 9I-C and authorization of 9I-D recursive verification. No recursive execution yet. This is a documentation-only record of separately reviewed research, not executable promotion to GitHub.
+> **Current checkpoint: 9I-D owner closed; 9I-E NOT_ACCEPTED.** Original adaptive R1 Windows campaign failed closed in group 27 on a transient DLL hash mismatch. Forensic stages 0–2 completed within diagnostic scope; cause remains unresolved. Owner cancelled BIOS flash and external software installation. Next: document original BIOS settings, disable XMP for JEDEC defaults, verify post-restart inventory, then ONE unchanged full R1 campaign. No new campaign or memory-change verification yet. Documentation only; not executable promotion.
 
 | Research milestone | Qualified status |
 | --- | --- |
-| Bridge 7B–7D | Conditional T1–T4 / a posteriori numerical bounds and exact selection |
-| Bridge 8 / 8F | Rational-witness recursion and bounded adaptive continuation; 8F owner accepted |
-| Bridge 9A–9F | Exact algebraic mathematics and degree-four bound — owner accepted |
-| Bridge 9H | Standalone exact-algebraic reference — owner accepted; simulation only |
-| Bridge 9I-A | R2 design review — owner accepted and closed; qualified native affine trace deferral (not instruction verification) |
-| Bridge 9I-B | R3 authenticated initialization — owner accepted and closed |
-| Bridge 9I-C | R1 pinned Windows single-step continuation — evidence reconciled, auditor accepts closure, **owner closure pending** |
-| Bridge 9I-D | **Next: owner authorization pending**; six mandatory recursive verification requirements |
-| Bridge 9I-E–G / 9J | Adaptive continuation, further verification and integration/promotion not authorized |
-| Renderer migration / aggregate certification | Locked |
+| Bridge 7B–7D | Conditional T1–T4 / a posteriori bounds |
+| Bridge 8F | Owner accepted; frozen local checkpoint |
+| Bridge 9A–F / 9H | Mathematical scope and standalone simulation reference accepted |
+| Bridge 9I-A R2 / B R3 / C R1 | Owner accepted and closed within qualified scope |
+| Bridge 9I-D R1 | Owner accepted and closed; 70 transitions, 2590 predicates, 57 continuity bindings, 355 historical receipt checks |
+| Bridge 9I-E.1–3 | Additive adaptive review and split local diagnostics complete |
+| Bridge 9I-E.4 | Original pinned run 8/9 groups; 100 verified transitions, 3700 predicates, 83 continuity; NOT_ACCEPTED |
+| Forensic 0–2 | Source audit, 600/600 repeated DLL comparisons, 114/114 instrumented DLL comparisons; no root cause established |
+| Stage 3B-R | **Current: zero-flash JEDEC memory-only stabilization; post-change confirmation pending** |
+| Bridge 9I-E.5 | OPEN; composite 101/3737/84 diagnostic only |
+| Bridge 9I-F / G / 9J | Pending separate review and authorization |
+| Renderer/video pipelines / standalone builds / aggregate certification | Deferred; locked |
 
-**Evidence:** 9H 14/14 standalone tests and 7,193 reported oracle assertions; 9I-B 6/6 pinned tests, 13 initializations, 19 rejections, 248 reconciled assertions; 9I-C 6/6 pinned tests, 7 verified transitions, 259 predicates, 25 control records, 3 radius-masking controls, both selection signs and zero recursive evaluator entries. One intentionally unreconciled publication is not counted as verified. All pre/post captured preservation records reconcile to the accepted 697-file, six-worktree baseline; 26 inherited source pins match. No continuous attestation, universal resource bound or aggregate certification claimed.
+**Next acceptance bar:** a single fresh full 9/9 pinned R1 run, 101 verified transitions, 3737 independent predicates, 84 continuity bindings, 697/697 pre/post preservation, 26/26 source pins, zero unexpected integrity failures and independent offline reconciliation. Expected injected controls remain expected. Stop on any unexpected authentication failure; preserve all evidence, no retry until green. Auditor sign-off and explicit owner closure required.
 
-**[Full checkpoint, artifact fingerprints, limitations and exact resumption instructions](docs/BRIDGE_9_PROGRESS_CHECKPOINT_2026-11-25.md)**
+**[START HERE — full recovery checkpoint, evidence registry, forensic history and exact resumption instructions](docs/BRIDGE_9_PROGRESS_CHECKPOINT_2026-11-26.md)**
+
+[Previous checkpoint (25 November)](docs/BRIDGE_9_PROGRESS_CHECKPOINT_2026-11-25.md)
 
 ### Publication and preservation boundary
 
-- Pre-documentation GitHub main baseline: `d0db6f43827218ef8b0ea5447edc1a385fffd5e6` (Bridge 6); remote main checkpoint `f0f11adb8b08306b60fc103e3cf09de4b251d5be` remains unchanged by this documentation update.
-- Accepted local Bridge 8F checkpoint: `76e6267a63d6e3ccde873959edecf3f3ce27aa83`. Later executable review artifacts are retained separately, not promoted to main.
-- Preserve the six local worktrees, 697 enumerated files, 26 source pins and all accepted archives. Do not merge or pull this documentation into the frozen local baseline.
-- Both locks remain false: `_7B_INTEGRATION_ACCEPTED = False`, `all_certified = False`. No integration, promotion, adaptive or recursive execution is newly authorized by this checkpoint.
+- GitHub main remains at `f0f11adb8b08306b60fc103e3cf09de4b251d5be`; accepted local Bridge 8F checkpoint `76e6267a63d6e3ccde873959edecf3f3ce27aa83`. Later executable review packages are separately retained, not promoted.
+- Preserve all six local worktrees, 697 enumerated files, 26 source pins, accepted and failed artifacts. Do not pull or merge this documentation into frozen baselines.
+- Original host: i7-13700K, BIOS 0402 / reported microcode 0x10E, non-ECC DDR4. JEDEC target 2400 MT/s / 1.20 V; actual post-change state pending. BIOS/ME update and external diagnostic installs declined by owner. Known firmware risk and original unresolved transient failure remain disclosed.
+- Both locks remain false: `_7B_INTEGRATION_ACCEPTED = False`, `all_certified = False`. T1–T4 conditional assumptions and Q1–Q4 qualified trace deferral remain. No universal hardware guarantee, guaranteed arrival, integration, promotion, pin replacement or downstream authorization.
 
 ## Mathematical Status at a Glance
 
